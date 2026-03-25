@@ -1077,8 +1077,12 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     }
     if (!userMsg) throw new Error('No user message found');
 
-    // Create placeholder for new version
+    // Create placeholder for new version, preserving original created_at for position
     const tempAssistantId = `temp-assistant-${Date.now()}`;
+    const parentId = userMsg.id;
+
+    // Find the original active AI message to preserve its created_at
+    const originalAiMsg = msgs.find(m => m.parent_message_id === parentId && m.is_active);
     const placeholderAssistant: Message = {
       id: tempAssistantId,
       conversation_id: conversationId,
@@ -1091,26 +1095,38 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       thinking: null,
       tool_calls_json: null,
       tool_call_id: null,
-      created_at: Date.now(),
+      created_at: originalAiMsg?.created_at ?? Date.now(),
       parent_message_id: userMsg.id,
       version_index: 0,
       is_active: true,
     };
 
-    // Replace active AI message for this user msg with placeholder
-    const parentId = userMsg.id;
-    set((s) => ({
-      messages: s.messages.map(m => {
+    // Replace the active AI message in-place with placeholder (preserve position)
+    set((s) => {
+      let inserted = false;
+      const updated: Message[] = [];
+      for (const m of s.messages) {
         if (m.parent_message_id === parentId && m.is_active) {
-          return { ...m, is_active: false };
+          updated.push({ ...m, is_active: false });
+          if (!inserted) {
+            updated.push(placeholderAssistant);
+            inserted = true;
+          }
+        } else {
+          updated.push(m);
         }
-        return m;
-      }).concat(placeholderAssistant),
-      streaming: true,
-      streamingMessageId: tempAssistantId,
-      streamingConversationId: conversationId,
-      thinkingActiveMessageId: null,
-    }));
+      }
+      if (!inserted) {
+        updated.push(placeholderAssistant);
+      }
+      return {
+        messages: updated,
+        streaming: true,
+        streamingMessageId: tempAssistantId,
+        streamingConversationId: conversationId,
+        thinkingActiveMessageId: null,
+      };
+    });
     _pendingUiChunk = null;
     if (_streamUiFlushTimer !== null) {
       clearTimeout(_streamUiFlushTimer);
@@ -1124,6 +1140,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       const rMemIds = get().enabledMemoryNamespaceIds;
       await invoke('regenerate_message', {
         conversationId,
+        userMessageId: userMsg.id,
         enabledMcpServerIds: rMcpIds.length > 0 ? rMcpIds : undefined,
         thinkingBudget: rThinkingBudget,
         enabledKnowledgeBaseIds: rKbIds.length > 0 ? rKbIds : undefined,

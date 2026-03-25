@@ -389,6 +389,7 @@ fn spawn_stream_task(
     tools: Option<Vec<ChatTool>>,
     thinking_budget: Option<u32>,
     mcp_server_ids: Vec<String>,
+    override_created_at: Option<i64>,
 ) {
     let model_id = conversation.model_id.clone();
 
@@ -602,7 +603,7 @@ fn spawn_stream_task(
             completion_tokens: Set(completion_tokens.map(|v| v as i64)),
             attachments: Set("[]".to_string()),
             thinking: Set(if total_thinking.is_empty() { None } else { Some(total_thinking.clone()) }),
-            created_at: Set(aqbot_core::utils::now_ts()),
+            created_at: Set(override_created_at.unwrap_or_else(aqbot_core::utils::now_ts)),
             branch_id: Set(None),
             parent_message_id: Set(Some(parent_message_id.clone())),
             version_index: Set(version_index),
@@ -881,6 +882,7 @@ pub async fn send_message(
         tools,
         thinking_budget,
         mcp_ids,
+        None,
     );
 
     // Return the user message immediately
@@ -892,6 +894,7 @@ pub async fn regenerate_message(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
     conversation_id: String,
+    user_message_id: Option<String>,
     enabled_mcp_server_ids: Option<Vec<String>>,
     thinking_budget: Option<u32>,
     enabled_knowledge_base_ids: Option<Vec<String>>,
@@ -902,13 +905,21 @@ pub async fn regenerate_message(
         .await
         .map_err(|e| e.to_string())?;
 
-    // Find the last user message
-    let last_user_msg = messages
-        .iter()
-        .rev()
-        .find(|m| m.role == MessageRole::User)
-        .ok_or("No user message found to regenerate from")?
-        .clone();
+    // Find target user message: use provided ID or fall back to last user message
+    let last_user_msg = if let Some(ref uid) = user_message_id {
+        messages
+            .iter()
+            .find(|m| m.id == *uid && m.role == MessageRole::User)
+            .ok_or_else(|| format!("User message {} not found", uid))?
+            .clone()
+    } else {
+        messages
+            .iter()
+            .rev()
+            .find(|m| m.role == MessageRole::User)
+            .ok_or("No user message found to regenerate from")?
+            .clone()
+    };
 
     // 2. Count existing AI reply versions for this user message
     let existing_versions = aqbot_core::repo::message::list_message_versions(
@@ -919,6 +930,9 @@ pub async fn regenerate_message(
     .await
     .map_err(|e| e.to_string())?;
     let new_version_index = existing_versions.len() as i32;
+
+    // Preserve original created_at from first version to maintain message position
+    let original_created_at = existing_versions.first().map(|v| v.created_at);
 
     // 3. Deactivate all existing AI reply versions for this user message
     use aqbot_core::entity::messages as msg_entity;
@@ -1016,8 +1030,13 @@ pub async fn regenerate_message(
         }
     }
 
-    // Find last context-clear marker to truncate history
-    let clear_idx = remaining_messages.iter().rposition(|m| {
+    // Find the target user message position, then search for context-clear BEFORE it
+    let target_pos = remaining_messages.iter().position(|m| m.id == last_user_msg.id);
+    let search_range = match target_pos {
+        Some(pos) => &remaining_messages[..pos],
+        None => &remaining_messages[..],
+    };
+    let clear_idx = search_range.iter().rposition(|m| {
         m.role == MessageRole::System && m.content == "<!-- context-clear -->"
     });
     let effective_messages = match clear_idx {
@@ -1097,6 +1116,7 @@ pub async fn regenerate_message(
         tools,
         thinking_budget,
         mcp_ids,
+        original_created_at,
     );
 
     Ok(())

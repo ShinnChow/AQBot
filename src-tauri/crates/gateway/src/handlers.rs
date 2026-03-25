@@ -92,8 +92,12 @@ pub async fn chat_completions(
     let start_time = Instant::now();
 
     // Fetch providers once — used for both model-field parsing and resolution.
-    let providers = match aqbot_core::repo::provider::list_providers(&state.db).await {
-        Ok(p) => p,
+    // Filter to only chat-completions-compatible provider types.
+    let providers: Vec<ProviderConfig> = match aqbot_core::repo::provider::list_providers(&state.db).await {
+        Ok(p) => p.into_iter().filter(|p| matches!(
+            p.provider_type,
+            ProviderType::OpenAI | ProviderType::Custom
+        )).collect(),
         Err(e) => {
             return error_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string());
         }
@@ -570,7 +574,7 @@ pub(crate) fn resolve_provider_for_model(
             Ok(((*provider).clone(), parsed.model_id.clone()))
         }
         None => {
-            // Bare model_id: must match exactly one enabled provider.
+            // Bare model_id: find matching enabled providers.
             let matching: Vec<&&ProviderConfig> = enabled
                 .iter()
                 .filter(|p| {
@@ -585,22 +589,7 @@ pub(crate) fn resolve_provider_for_model(
                     StatusCode::NOT_FOUND,
                     &format!("Model '{}' not found", parsed.model_id),
                 )),
-                1 => Ok(((*matching[0]).clone(), parsed.model_id.clone())),
-                _ => {
-                    let slugs: Vec<String> = matching
-                        .iter()
-                        .map(|p| public_id_map.get(&p.id).cloned().unwrap_or_default())
-                        .collect();
-                    Err(error_response(
-                        StatusCode::BAD_REQUEST,
-                        &format!(
-                            "Model '{}' is ambiguous across multiple providers ({}); \
-                             use 'provider/model_id' to disambiguate",
-                            parsed.model_id,
-                            slugs.join(", ")
-                        ),
-                    ))
-                }
+                _ => Ok(((*matching[0]).clone(), parsed.model_id.clone())),
             }
         }
     }

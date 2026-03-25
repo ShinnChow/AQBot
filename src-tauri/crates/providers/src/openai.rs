@@ -53,9 +53,16 @@ struct OpenAIRequest {
     max_tokens: Option<u32>,
     stream: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
+    stream_options: Option<StreamOptions>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     tools: Option<Vec<ChatTool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     reasoning_effort: Option<String>,
+}
+
+#[derive(Serialize)]
+struct StreamOptions {
+    include_usage: bool,
 }
 
 #[derive(Serialize)]
@@ -268,6 +275,7 @@ fn build_request(request: &ChatRequest, messages: &[ChatMessage], stream: bool) 
         top_p: if reasoning_effort.is_some() { None } else { request.top_p },
         max_tokens: request.max_tokens,
         stream,
+        stream_options: if stream { Some(StreamOptions { include_usage: true }) } else { None },
         tools: request.tools.clone(),
         reasoning_effort,
     }
@@ -508,6 +516,20 @@ impl ProviderAdapter for OpenAIAdapter {
                                             tool_calls: None,
                                         }));
                                     }
+                                } else if let Some(u) = parsed.usage {
+                                    // Usage-only chunk (empty choices) sent when stream_options.include_usage is true
+                                    let _ = tx.unbounded_send(Ok(ChatStreamChunk {
+                                        content: None,
+                                        thinking: None,
+                                        done: false,
+                                        is_final: None,
+                                        usage: Some(TokenUsage {
+                                            prompt_tokens: u.prompt_tokens,
+                                            completion_tokens: u.completion_tokens,
+                                            total_tokens: u.total_tokens,
+                                        }),
+                                        tool_calls: None,
+                                    }));
                                 }
                             }
                         }

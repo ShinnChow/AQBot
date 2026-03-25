@@ -1883,6 +1883,7 @@ export function ChatView() {
     return {
       placement: 'start' as const,
       variant: 'borderless' as const,
+      className: 'context-clear-bubble',
       contentRender: () => (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 0', width: '100%' }}>
           <div style={{ flex: 1, height: 1, borderTop: `1px dashed ${token.colorBorderSecondary}` }} />
@@ -1988,6 +1989,14 @@ export function ChatView() {
         }
         .bubble-compact .ant-bubble-content {
           padding: 6px 10px;
+        }
+        .context-clear-bubble.ant-bubble {
+          width: 100%;
+          padding-inline-end: 0 !important;
+          padding-inline-start: 0 !important;
+        }
+        .context-clear-bubble .ant-bubble-content-wrapper {
+          flex: 1;
         }
         .bubble-minimal .ant-bubble-content {
           background: transparent !important;

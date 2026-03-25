@@ -496,6 +496,9 @@
       "allowAll": "Allow All",
       "tools": "Tool List",
       "noTools": "No tools available",
+      "refreshTools": "Refresh Tools",
+      "refreshSuccess": "Tools refreshed successfully",
+      "refreshFailed": "Failed to refresh tools",
       "testSuccess": "Connection test successful",
       "testFailed": "Connection test failed",
       "deleteConfirm": "Delete this MCP server?",
@@ -504,7 +507,10 @@
       "builtin": "Built-in",
       "builtinFetch": "Fetch",
       "builtinSearchFile": "File Search",
-      "custom": "Custom"
+      "custom": "Custom",
+      "discoverTimeout": "Discovery Timeout",
+      "executeTimeout": "Execution Timeout",
+      "customHeaders": "Custom Headers"
     },
     "knowledge": {
       "title": "Knowledge Base",

@@ -1,6 +1,6 @@
 use sea_orm::*;
 
-use crate::entity::mcp_servers;
+use crate::entity::{mcp_servers, tool_descriptors};
 use crate::error::{AQBotError, Result};
 use crate::repo::settings;
 use crate::types::{CreateMcpServerInput, McpServer, ToolDescriptor};
@@ -38,6 +38,9 @@ fn make_builtin_server(def: &BuiltinDef, enabled: bool) -> McpServer {
         enabled,
         permission_policy: "auto".to_string(),
         source: "builtin".to_string(),
+        discover_timeout_secs: None,
+        execute_timeout_secs: None,
+        headers_json: None,
     }
 }
 
@@ -93,6 +96,9 @@ fn model_to_mcp_server(m: mcp_servers::Model) -> McpServer {
         enabled: m.enabled != 0,
         permission_policy: m.permission_policy,
         source: m.source,
+        discover_timeout_secs: m.discover_timeout_secs,
+        execute_timeout_secs: m.execute_timeout_secs,
+        headers_json: m.headers_json,
     }
 }
 
@@ -152,6 +158,9 @@ pub async fn create_mcp_server(
                 .unwrap_or_else(|| "ask".to_string()),
         ),
         source: Set(input.source.unwrap_or_else(|| "custom".to_string())),
+        discover_timeout_secs: Set(input.discover_timeout_secs),
+        execute_timeout_secs: Set(input.execute_timeout_secs),
+        headers_json: Set(input.headers_json),
     }
     .insert(db)
     .await?;
@@ -193,6 +202,9 @@ pub async fn update_mcp_server(
         Some(ref e) => Some(serde_json::to_string(e).unwrap_or_default()),
         None => existing.env_json,
     };
+    let discover_timeout_secs = input.discover_timeout_secs.or(existing.discover_timeout_secs);
+    let execute_timeout_secs = input.execute_timeout_secs.or(existing.execute_timeout_secs);
+    let headers_json = input.headers_json.or(existing.headers_json);
 
     let model = mcp_servers::Entity::find_by_id(id)
         .one(db)
@@ -208,6 +220,9 @@ pub async fn update_mcp_server(
     am.env_json = Set(env_json);
     am.enabled = Set(if enabled { 1 } else { 0 });
     am.permission_policy = Set(permission_policy);
+    am.discover_timeout_secs = Set(discover_timeout_secs);
+    am.execute_timeout_secs = Set(execute_timeout_secs);
+    am.headers_json = Set(headers_json);
     am.update(db).await?;
 
     get_mcp_server(db, id).await
@@ -234,8 +249,60 @@ pub async fn list_tools_for_server(db: &DatabaseConnection, server_id: &str) -> 
     if let Some(def) = BUILTIN_DEFS.iter().find(|d| d.id == server_id) {
         return Ok(builtin_tools(server_id, def.name));
     }
-    let server = get_mcp_server(db, server_id).await?;
-    Ok(builtin_tools(server_id, &server.name))
+    // Custom servers: read from tool_descriptors table
+    let rows = tool_descriptors::Entity::find()
+        .filter(tool_descriptors::Column::ServerId.eq(server_id))
+        .order_by_asc(tool_descriptors::Column::Name)
+        .all(db)
+        .await?;
+    Ok(rows.into_iter().map(|m| ToolDescriptor {
+        id: m.id,
+        server_id: m.server_id,
+        name: m.name,
+        description: m.description,
+        input_schema_json: m.input_schema_json,
+    }).collect())
+}
+
+/// Save discovered tool descriptors for a server (replaces existing).
+pub async fn save_tool_descriptors(
+    db: &DatabaseConnection,
+    server_id: &str,
+    tools: Vec<crate::mcp_client::DiscoveredTool>,
+) -> Result<Vec<ToolDescriptor>> {
+    // Delete existing tools for this server
+    tool_descriptors::Entity::delete_many()
+        .filter(tool_descriptors::Column::ServerId.eq(server_id))
+        .exec(db)
+        .await?;
+
+    // Insert new tools
+    let mut result = Vec::with_capacity(tools.len());
+    for tool in tools {
+        let id = gen_id();
+        let input_schema_json = tool.input_schema
+            .as_ref()
+            .map(|s| serde_json::to_string(s).unwrap_or_default());
+
+        tool_descriptors::ActiveModel {
+            id: Set(id.clone()),
+            server_id: Set(server_id.to_string()),
+            name: Set(tool.name.clone()),
+            description: Set(tool.description.clone()),
+            input_schema_json: Set(input_schema_json.clone()),
+        }
+        .insert(db)
+        .await?;
+
+        result.push(ToolDescriptor {
+            id,
+            server_id: server_id.to_string(),
+            name: tool.name,
+            description: tool.description,
+            input_schema_json,
+        });
+    }
+    Ok(result)
 }
 
 fn builtin_tools(server_id: &str, server_name: &str) -> Vec<ToolDescriptor> {

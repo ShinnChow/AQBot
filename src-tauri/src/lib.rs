@@ -150,6 +150,7 @@ pub fn run() {
             commands::mcp::delete_mcp_server,
             commands::mcp::test_mcp_server,
             commands::mcp::list_mcp_tools,
+            commands::mcp::discover_mcp_tools,
             commands::mcp::list_tool_executions,
             // knowledge
             commands::knowledge::list_knowledge_bases,

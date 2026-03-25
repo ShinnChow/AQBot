@@ -15,6 +15,7 @@ interface McpState {
   deleteServer: (id: string) => Promise<void>;
   testServer: (id: string) => Promise<{ ok: boolean; error?: string }>;
   loadToolDescriptors: (serverId: string) => Promise<void>;
+  discoverTools: (serverId: string) => Promise<ToolDescriptor[]>;
   loadToolExecutions: (conversationId: string) => Promise<void>;
 }
 
@@ -96,6 +97,20 @@ export const useMcpStore = create<McpState>((set) => ({
       }));
     } catch (e) {
       set({ error: String(e) });
+    }
+  },
+
+  discoverTools: async (serverId) => {
+    try {
+      const tools = await invoke<ToolDescriptor[]>('discover_mcp_tools', { id: serverId });
+      set((s) => ({
+        toolDescriptors: { ...s.toolDescriptors, [serverId]: tools },
+        error: null,
+      }));
+      return tools;
+    } catch (e) {
+      set({ error: String(e) });
+      throw e;
     }
   },
 

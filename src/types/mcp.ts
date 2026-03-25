@@ -1,4 +1,4 @@
-export type McpTransport = 'stdio' | 'http';
+export type McpTransport = 'stdio' | 'http' | 'sse';
 export type McpPermissionPolicy = 'ask' | 'allow_safe' | 'allow_all';
 export type ToolExecutionStatus = 'pending' | 'running' | 'success' | 'failed' | 'cancelled';
 
@@ -9,12 +9,15 @@ export type McpServer = {
   name: string;
   transport: McpTransport;
   command?: string;
-  args?: string[];
+  argsJson?: string;
   endpoint?: string;
-  env?: Record<string, string>;
+  envJson?: string;
   enabled: boolean;
   permissionPolicy: McpPermissionPolicy;
   source: McpServerSource;
+  discoverTimeoutSecs?: number;
+  executeTimeoutSecs?: number;
+  headersJson?: string;
 };
 
 export type ToolDescriptor = {
@@ -48,6 +51,9 @@ export type CreateMcpServerInput = {
   env?: Record<string, string>;
   enabled?: boolean;
   permissionPolicy?: McpPermissionPolicy;
+  discoverTimeoutSecs?: number;
+  executeTimeoutSecs?: number;
+  headersJson?: string;
 };
 
 export type UpdateMcpServerInput = Partial<CreateMcpServerInput>;

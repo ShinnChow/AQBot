@@ -768,7 +768,7 @@ pub struct SearchCitation {
 pub struct McpServer {
     pub id: String,
     pub name: String,
-    pub transport: String, // stdio | http
+    pub transport: String, // stdio | http | sse
     pub command: Option<String>,
     pub args_json: Option<String>,
     pub endpoint: Option<String>,
@@ -776,6 +776,9 @@ pub struct McpServer {
     pub enabled: bool,
     pub permission_policy: String, // ask | allow_safe | allow_all
     pub source: String,            // builtin | custom
+    pub discover_timeout_secs: Option<i32>,
+    pub execute_timeout_secs: Option<i32>,
+    pub headers_json: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1042,6 +1045,9 @@ pub struct CreateMcpServerInput {
     pub enabled: Option<bool>,
     pub permission_policy: Option<String>,
     pub source: Option<String>,
+    pub discover_timeout_secs: Option<i32>,
+    pub execute_timeout_secs: Option<i32>,
+    pub headers_json: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

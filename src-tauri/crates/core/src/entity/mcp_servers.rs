@@ -15,6 +15,9 @@ pub struct Model {
     pub enabled: i32,
     pub permission_policy: String,
     pub source: String,
+    pub discover_timeout_secs: Option<i32>,
+    pub execute_timeout_secs: Option<i32>,
+    pub headers_json: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

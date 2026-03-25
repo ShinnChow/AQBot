@@ -4,6 +4,7 @@ import {
   Modal,
   Form,
   Input,
+  InputNumber,
   Select,
   Switch,
   Divider,
@@ -13,8 +14,9 @@ import {
   Collapse,
   Empty,
   theme,
+  message,
 } from 'antd';
-import { Plus, Trash2, Server, Globe, FileSearch } from 'lucide-react';
+import { Plus, Trash2, Server, Globe, FileSearch, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMcpStore } from '@/stores';
 import type { McpServer, CreateMcpServerInput, ToolDescriptor } from '@/types';
@@ -36,11 +38,15 @@ function McpServerList({
   selectedId,
   onSelect,
   onAdd,
+  enablingServerIds,
+  onToggle,
 }: {
   servers: McpServer[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onAdd: () => void;
+  enablingServerIds: Set<string>;
+  onToggle: (id: string, enable: boolean) => void;
 }) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
@@ -77,7 +83,7 @@ function McpServerList({
           <span style={{ color: isSelected ? token.colorPrimary : undefined }}>{displayName}</span>
           {!isBuiltin && (
             <Tag
-              color={s.transport === 'stdio' ? 'blue' : 'green'}
+              color={s.transport === 'stdio' ? 'blue' : s.transport === 'sse' ? 'orange' : 'green'}
               style={{ margin: 0, fontSize: 11 }}
             >
               {s.transport}
@@ -87,8 +93,10 @@ function McpServerList({
         <Switch
           size="small"
           checked={s.enabled}
+          loading={enablingServerIds.has(s.id)}
+          disabled={enablingServerIds.has(s.id)}
           onClick={(_, e) => e.stopPropagation()}
-          onChange={() => useMcpStore.getState().updateServer(s.id, { enabled: !s.enabled })}
+          onChange={() => onToggle(s.id, !s.enabled)}
         />
       </div>
     );
@@ -144,12 +152,43 @@ function McpServerList({
 function McpServerDetail({
   server,
   onDeleted,
+  enabling,
+  onToggle,
 }: {
   server: McpServer;
   onDeleted: () => void;
+  enabling: boolean;
+  onToggle: (enable: boolean) => void;
 }) {
   const { t } = useTranslation();
-  const { updateServer, deleteServer, toolDescriptors, loadToolDescriptors } = useMcpStore();
+  const { updateServer, deleteServer, toolDescriptors, loadToolDescriptors, discoverTools } = useMcpStore();
+  const [discovering, setDiscovering] = useState(false);
+
+  // Local state for text inputs to avoid cursor-jump on every keystroke
+  const [localName, setLocalName] = useState(server.name);
+  const [localCommand, setLocalCommand] = useState(server.command ?? '');
+  const [localArgs, setLocalArgs] = useState(() => {
+    try { return (JSON.parse(server.argsJson ?? '[]') as string[]).join(' '); } catch { return ''; }
+  });
+  const [localEndpoint, setLocalEndpoint] = useState(server.endpoint ?? '');
+  const [localHeaders, setLocalHeaders] = useState(() => {
+    try {
+      const obj = JSON.parse(server.headersJson ?? '{}') as Record<string, string>;
+      return Object.entries(obj).map(([k, v]) => `${k}=${v}`).join('\n');
+    } catch { return ''; }
+  });
+
+  // Reset local state when switching servers
+  useEffect(() => {
+    setLocalName(server.name);
+    setLocalCommand(server.command ?? '');
+    try { setLocalArgs((JSON.parse(server.argsJson ?? '[]') as string[]).join(' ')); } catch { setLocalArgs(''); }
+    setLocalEndpoint(server.endpoint ?? '');
+    try {
+      const obj = JSON.parse(server.headersJson ?? '{}') as Record<string, string>;
+      setLocalHeaders(Object.entries(obj).map(([k, v]) => `${k}=${v}`).join('\n'));
+    } catch { setLocalHeaders(''); }
+  }, [server.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     loadToolDescriptors(server.id);
@@ -162,6 +201,18 @@ function McpServerDetail({
 
   const handleFieldChange = async (field: string, value: unknown) => {
     await updateServer(server.id, { [field]: value });
+  };
+
+  const handleDiscoverTools = async () => {
+    setDiscovering(true);
+    try {
+      await discoverTools(server.id);
+      message.success(t('settings.mcpServers.refreshSuccess'));
+    } catch (e) {
+      message.error(`${t('settings.mcpServers.refreshFailed')}: ${e}`);
+    } finally {
+      setDiscovering(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -203,8 +254,9 @@ function McpServerDetail({
           <div style={rowStyle} className="flex items-center justify-between">
             <span>{t('settings.mcpServers.name')}</span>
             <Input
-              value={server.name}
-              onChange={(e) => handleFieldChange('name', e.target.value)}
+              value={localName}
+              onChange={(e) => setLocalName(e.target.value)}
+              onBlur={() => { if (localName !== server.name) handleFieldChange('name', localName); }}
               style={{ width: 280 }}
             />
           </div>
@@ -218,6 +270,7 @@ function McpServerDetail({
               options={[
                 { value: 'stdio', label: 'stdio' },
                 { value: 'http', label: 'http' },
+                { value: 'sse', label: 'sse' },
               ]}
             />
           </div>
@@ -230,8 +283,9 @@ function McpServerDetail({
           <div style={rowStyle} className="flex items-center justify-between">
             <span>{t('settings.mcpServers.command')}</span>
             <Input
-              value={server.command ?? ''}
-              onChange={(e) => handleFieldChange('command', e.target.value || null)}
+              value={localCommand}
+              onChange={(e) => setLocalCommand(e.target.value)}
+              onBlur={() => handleFieldChange('command', localCommand || null)}
               placeholder="npx"
               style={{ width: 280 }}
             />
@@ -240,8 +294,12 @@ function McpServerDetail({
           <div style={rowStyle} className="flex items-center justify-between">
             <span>{t('settings.mcpServers.args')}</span>
             <Input
-              value={server.args?.join(' ') ?? ''}
-              onChange={(e) => handleFieldChange('args', e.target.value ? e.target.value.split(/\s+/).filter(Boolean) : null)}
+              value={localArgs}
+              onChange={(e) => setLocalArgs(e.target.value)}
+              onBlur={() => {
+                const arr = localArgs ? localArgs.split(/\s+/).filter(Boolean) : [];
+                handleFieldChange('args', arr.length > 0 ? arr : null);
+              }}
               placeholder="-y @modelcontextprotocol/server-name"
               style={{ width: 280 }}
             />
@@ -250,15 +308,67 @@ function McpServerDetail({
         </>
       )}
 
-      {server.transport === 'http' && !isBuiltin && (
+      {(server.transport === 'http' || server.transport === 'sse') && !isBuiltin && (
         <>
           <div style={rowStyle} className="flex items-center justify-between">
             <span>{t('settings.mcpServers.endpoint')}</span>
             <Input
-              value={server.endpoint ?? ''}
-              onChange={(e) => handleFieldChange('endpoint', e.target.value || null)}
+              value={localEndpoint}
+              onChange={(e) => setLocalEndpoint(e.target.value)}
+              onBlur={() => handleFieldChange('endpoint', localEndpoint || null)}
               placeholder="http://localhost:3000"
               style={{ width: 280 }}
+            />
+          </div>
+          <Divider style={{ margin: '4px 0' }} />
+          <div style={rowStyle} className="flex items-center justify-between">
+            <span>{t('settings.mcpServers.customHeaders')}</span>
+            <Input.TextArea
+              value={localHeaders}
+              onChange={(e) => setLocalHeaders(e.target.value)}
+              onBlur={() => {
+                const lines = localHeaders.split('\n').filter((l) => l.includes('='));
+                const obj: Record<string, string> = {};
+                for (const line of lines) {
+                  const idx = line.indexOf('=');
+                  if (idx > 0) obj[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
+                }
+                handleFieldChange('headersJson', lines.length > 0 ? JSON.stringify(obj) : null);
+              }}
+              placeholder={'Authorization=Bearer xxx\nX-Custom=value'}
+              autoSize={{ minRows: 2, maxRows: 6 }}
+              style={{ width: 280 }}
+            />
+          </div>
+          <Divider style={{ margin: '4px 0' }} />
+        </>
+      )}
+
+      {!isBuiltin && (
+        <>
+          <div style={rowStyle} className="flex items-center justify-between">
+            <span>{t('settings.mcpServers.discoverTimeout')}</span>
+            <InputNumber
+              value={server.discoverTimeoutSecs}
+              onChange={(val) => handleFieldChange('discoverTimeoutSecs', val)}
+              placeholder="30"
+              min={5}
+              max={300}
+              addonAfter="s"
+              style={{ width: 160 }}
+            />
+          </div>
+          <Divider style={{ margin: '4px 0' }} />
+          <div style={rowStyle} className="flex items-center justify-between">
+            <span>{t('settings.mcpServers.executeTimeout')}</span>
+            <InputNumber
+              value={server.executeTimeoutSecs}
+              onChange={(val) => handleFieldChange('executeTimeoutSecs', val)}
+              placeholder="30"
+              min={5}
+              max={600}
+              addonAfter="s"
+              style={{ width: 160 }}
             />
           </div>
           <Divider style={{ margin: '4px 0' }} />
@@ -269,15 +379,33 @@ function McpServerDetail({
         <span>{t('common.enabled')}</span>
         <Switch
           checked={server.enabled}
-          onChange={(val) => handleFieldChange('enabled', val)}
+          loading={enabling}
+          disabled={enabling}
+          onChange={(val) => onToggle(val)}
         />
       </div>
 
       {/* Tool Descriptors */}
       <Divider />
-      <Typography.Title level={5} style={{ marginBottom: 12 }}>
-        {t('settings.mcpServers.tools', 'Tools')}
-      </Typography.Title>
+      <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
+        <Typography.Title level={5} style={{ margin: 0 }}>
+          {t('settings.mcpServers.tools', 'Tools')}
+          {tools.length > 0 && (
+            <Tag style={{ marginLeft: 8, fontWeight: 400 }}>{tools.length}</Tag>
+          )}
+        </Typography.Title>
+        {!isBuiltin && (
+          <Button
+            size="small"
+            icon={<RefreshCw size={14} className={discovering ? 'animate-spin' : ''} />}
+            loading={discovering}
+            disabled={!server.enabled}
+            onClick={handleDiscoverTools}
+          >
+            {t('settings.mcpServers.refreshTools')}
+          </Button>
+        )}
+      </div>
       {tools.length === 0 ? (
         <Empty description={t('settings.mcpServers.noTools')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
       ) : (
@@ -298,11 +426,33 @@ function McpServerDetail({
 
 export default function McpServerSettings() {
   const { t } = useTranslation();
-  const { servers, loadServers, createServer } = useMcpStore();
+  const { servers, loadServers, createServer, updateServer, discoverTools } = useMcpStore();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [form] = Form.useForm();
   const transport = Form.useWatch('transport', form);
+
+  const [enablingServerIds, setEnablingServerIds] = useState<Set<string>>(new Set());
+
+  const handleToggleEnabled = async (serverId: string, enable: boolean) => {
+    if (!enable) {
+      await updateServer(serverId, { enabled: false });
+      return;
+    }
+    setEnablingServerIds((prev) => new Set(prev).add(serverId));
+    try {
+      await discoverTools(serverId);
+      await updateServer(serverId, { enabled: true });
+    } catch (e) {
+      message.error(`${t('settings.mcpServers.refreshFailed')}: ${e}`);
+    } finally {
+      setEnablingServerIds((prev) => {
+        const next = new Set(prev);
+        next.delete(serverId);
+        return next;
+      });
+    }
+  };
 
   useEffect(() => {
     loadServers();
@@ -318,7 +468,7 @@ export default function McpServerSettings() {
 
   const handleAdd = () => {
     form.resetFields();
-    form.setFieldsValue({ transport: 'stdio', enabled: true });
+    form.setFieldsValue({ transport: 'stdio' });
     setModalOpen(true);
   };
 
@@ -331,7 +481,7 @@ export default function McpServerSettings() {
         command: values.command,
         args: values.args ? values.args.split(/\s+/).filter(Boolean) : undefined,
         endpoint: values.endpoint,
-        enabled: values.enabled,
+        enabled: false,
       };
       await createServer(input);
       setModalOpen(false);
@@ -349,6 +499,8 @@ export default function McpServerSettings() {
           selectedId={selectedId}
           onSelect={setSelectedId}
           onAdd={handleAdd}
+          enablingServerIds={enablingServerIds}
+          onToggle={handleToggleEnabled}
         />
       </div>
       <div className="min-w-0 flex-1 overflow-y-auto">
@@ -357,6 +509,8 @@ export default function McpServerSettings() {
             key={selectedServer.id}
             server={selectedServer}
             onDeleted={() => setSelectedId(null)}
+            enabling={enablingServerIds.has(selectedServer.id)}
+            onToggle={(enable) => handleToggleEnabled(selectedServer.id, enable)}
           />
         ) : (
           <div className="flex h-full items-center justify-center">
@@ -375,12 +529,12 @@ export default function McpServerSettings() {
         onCancel={() => { setModalOpen(false); form.resetFields(); }}
         mask={{ enabled: true, blur: true }}
       >
-        <Form form={form} layout="vertical" initialValues={{ transport: 'stdio', enabled: true }}>
+        <Form form={form} layout="vertical" initialValues={{ transport: 'stdio' }}>
           <Form.Item name="name" label={t('settings.mcpServers.name')} rules={[{ required: true }]}>
             <Input />
           </Form.Item>
           <Form.Item name="transport" label={t('settings.mcpServers.transport')} rules={[{ required: true }]}>
-            <Select options={[{ value: 'stdio', label: 'stdio' }, { value: 'http', label: 'http' }]} />
+            <Select options={[{ value: 'stdio', label: 'stdio' }, { value: 'http', label: 'http' }, { value: 'sse', label: 'sse' }]} />
           </Form.Item>
           {transport === 'stdio' && (
             <>
@@ -392,14 +546,11 @@ export default function McpServerSettings() {
               </Form.Item>
             </>
           )}
-          {transport === 'http' && (
+          {(transport === 'http' || transport === 'sse') && (
             <Form.Item name="endpoint" label={t('settings.mcpServers.endpoint')}>
               <Input placeholder="http://localhost:3000" />
             </Form.Item>
           )}
-          <Form.Item name="enabled" label={t('common.enabled')} valuePropName="checked">
-            <Switch />
-          </Form.Item>
         </Form>
       </Modal>
     </div>

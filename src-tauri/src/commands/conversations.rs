@@ -362,6 +362,13 @@ async fn execute_tool_call(
             };
             aqbot_core::mcp_client::call_tool_http(&endpoint, &tool_call.function.name, arguments).await
         }
+        "sse" => {
+            let endpoint = match &server.endpoint {
+                Some(ep) => ep.clone(),
+                None => return ("Error: SSE server has no endpoint configured".into(), true),
+            };
+            aqbot_core::mcp_client::call_tool_sse(&endpoint, &tool_call.function.name, arguments).await
+        }
         other => return (format!("Error: Unsupported transport '{}'", other), true),
     };
 

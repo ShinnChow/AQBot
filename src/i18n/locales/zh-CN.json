@@ -496,6 +496,9 @@
       "allowAll": "允许全部",
       "tools": "工具列表",
       "noTools": "暂无工具",
+      "refreshTools": "刷新工具",
+      "refreshSuccess": "工具刷新成功",
+      "refreshFailed": "工具刷新失败",
       "testSuccess": "连接测试成功",
       "testFailed": "连接测试失败",
       "deleteConfirm": "确定删除此 MCP 服务器？",
@@ -504,7 +507,10 @@
       "builtin": "内置工具",
       "builtinFetch": "网页抓取",
       "builtinSearchFile": "文件搜索",
-      "custom": "自定义"
+      "custom": "自定义",
+      "discoverTimeout": "发现超时",
+      "executeTimeout": "执行超时",
+      "customHeaders": "自定义请求头"
     },
     "knowledge": {
       "title": "知识库",

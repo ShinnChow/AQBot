@@ -1622,6 +1622,12 @@ export function ChatView() {
         ? buildAssistantDisplayContent(msg, activeMessages)
         : msg.content;
       if (shouldHideAssistantBubble(msg, aiContent)) continue;
+      if (msg.role === 'assistant' && msg.thinking) {
+        const thinkingMarker = thinkingActiveMessageId === msg.id
+          ? `${THINKING_LOADING_MARKER}\n`
+          : '';
+        aiContent = `<thinking data-message-id="${msg.id}">${thinkingMarker}${msg.thinking}</thinking>\n\n${aiContent}`;
+      }
       if (msg.role === 'assistant' && !aiContent.startsWith('<web-search')) {
         const parentSearch = msg.parent_message_id
           ? userSearchContentById.get(msg.parent_message_id)
@@ -1631,12 +1637,6 @@ export function ChatView() {
           const resultsJson = JSON.stringify(sources.map((s) => ({ title: s.title, url: s.url })));
           aiContent = `<web-search status="done">\n${resultsJson}\n</web-search>\n\n${aiContent}`;
         }
-      }
-      if (msg.role === 'assistant' && msg.thinking) {
-        const thinkingMarker = thinkingActiveMessageId === msg.id
-          ? `${THINKING_LOADING_MARKER}\n`
-          : '';
-        aiContent = `<thinking data-message-id="${msg.id}">${thinkingMarker}${msg.thinking}</thinking>\n\n${aiContent}`;
       }
 
       // Use parent_message_id as stable key for assistant bubbles to avoid

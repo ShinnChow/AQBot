@@ -78,35 +78,22 @@ b, strong, th,
   font-weight: calc(var(--font-weight, 400) + 200) !important;
 }
 
-/* Global scrollbar styling — thin, semi-transparent, auto-hide on idle */
-::-webkit-scrollbar {
-  width: 5px !important;
-  height: 5px !important;
-}
-::-webkit-scrollbar-track {
-  background: transparent !important;
-}
-::-webkit-scrollbar-thumb {
-  background: transparent !important;
-  border-radius: 3px !important;
-  transition: background 0.3s ease;
-}
-::-webkit-scrollbar-corner {
-  background: transparent !important;
-}
-:hover::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.08) !important;
-}
-:hover::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.18) !important;
-}
-html[data-theme="dark"] :hover::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08) !important;
-}
-html[data-theme="dark"] :hover::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.18) !important;
-}
-/* Firefox scrollbar */
+/*
+ * Scrollbar styling — two tiers:
+ *
+ * 1. Standard properties (scrollbar-width, scrollbar-color) always apply.
+ *    These provide the baseline thin, semi-transparent scrollbar on all
+ *    platforms (Safari 17.4+, Firefox, Chrome 121+).
+ *
+ * 2. ::-webkit-scrollbar pseudo-elements are gated behind the
+ *    .webkit-scrollbar-ok class on <html>.  A runtime probe in main.tsx
+ *    adds this class only when WebKit custom scrollbar rendering actually
+ *    works.  When active, ::-webkit-scrollbar disables the standard
+ *    properties (browser behaviour), giving us border-radius, transitions,
+ *    and finer control.
+ */
+
+/* ── Tier 1: Standard scrollbar properties (always active) ────────── */
 * {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
@@ -118,7 +105,36 @@ html[data-theme="dark"] *:hover {
   scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
 }
 
-/* Override antd Bubble.List scrollbar — it sets its own CSS-in-JS styles */
+/* ── Tier 2: WebKit custom scrollbar (only when probe succeeds) ───── */
+.webkit-scrollbar-ok ::-webkit-scrollbar {
+  width: 5px !important;
+  height: 5px !important;
+}
+.webkit-scrollbar-ok ::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+.webkit-scrollbar-ok ::-webkit-scrollbar-thumb {
+  background: transparent !important;
+  border-radius: 3px !important;
+  transition: background 0.3s ease;
+}
+.webkit-scrollbar-ok ::-webkit-scrollbar-corner {
+  background: transparent !important;
+}
+.webkit-scrollbar-ok :hover::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.08) !important;
+}
+.webkit-scrollbar-ok :hover::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.18) !important;
+}
+html[data-theme="dark"].webkit-scrollbar-ok :hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+html[data-theme="dark"].webkit-scrollbar-ok :hover::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18) !important;
+}
+
+/* ── Override antd Bubble.List scrollbar ──────────────────────────── */
 .ant-bubble-list-scroll-box {
   scrollbar-color: transparent transparent !important;
 }
@@ -128,23 +144,23 @@ html[data-theme="dark"] *:hover {
 html[data-theme="dark"] .ant-bubble-list-scroll-box:hover {
   scrollbar-color: rgba(255, 255, 255, 0.08) transparent !important;
 }
-.ant-bubble-list-scroll-box::-webkit-scrollbar {
+.webkit-scrollbar-ok .ant-bubble-list-scroll-box::-webkit-scrollbar {
   width: 5px !important;
 }
-.ant-bubble-list-scroll-box::-webkit-scrollbar-thumb {
+.webkit-scrollbar-ok .ant-bubble-list-scroll-box::-webkit-scrollbar-thumb {
   background-color: transparent !important;
   border-radius: 3px !important;
 }
-.ant-bubble-list-scroll-box:hover::-webkit-scrollbar-thumb {
+.webkit-scrollbar-ok .ant-bubble-list-scroll-box:hover::-webkit-scrollbar-thumb {
   background-color: rgba(0, 0, 0, 0.08) !important;
 }
-.ant-bubble-list-scroll-box:hover::-webkit-scrollbar-thumb:hover {
+.webkit-scrollbar-ok .ant-bubble-list-scroll-box:hover::-webkit-scrollbar-thumb:hover {
   background-color: rgba(0, 0, 0, 0.18) !important;
 }
-html[data-theme="dark"] .ant-bubble-list-scroll-box:hover::-webkit-scrollbar-thumb {
+html[data-theme="dark"].webkit-scrollbar-ok .ant-bubble-list-scroll-box:hover::-webkit-scrollbar-thumb {
   background-color: rgba(255, 255, 255, 0.08) !important;
 }
-html[data-theme="dark"] .ant-bubble-list-scroll-box:hover::-webkit-scrollbar-thumb:hover {
+html[data-theme="dark"].webkit-scrollbar-ok .ant-bubble-list-scroll-box:hover::-webkit-scrollbar-thumb:hover {
   background-color: rgba(255, 255, 255, 0.18) !important;
 }
 

@@ -131,6 +131,7 @@ export interface Message {
   parent_message_id: string | null;
   version_index: number;
   is_active: boolean;
+  status: 'complete' | 'partial' | 'error';
 }
 
 export interface MessagePage {

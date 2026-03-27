@@ -8,8 +8,6 @@ export function ChatPage() {
   const { token } = theme.useToken();
   const fetchConversations = useConversationStore((s) => s.fetchConversations);
   const conversationCount = useConversationStore((s) => s.conversations.length);
-  const startStreamListening = useConversationStore((s) => s.startStreamListening);
-  const stopStreamListening = useConversationStore((s) => s.stopStreamListening);
   const fetchProviders = useProviderStore((s) => s.fetchProviders);
   const providerCount = useProviderStore((s) => s.providers.length);
 
@@ -20,9 +18,7 @@ export function ChatPage() {
     if (providerCount === 0) {
       fetchProviders();
     }
-    startStreamListening();
-    return () => stopStreamListening();
-  }, [conversationCount, fetchConversations, fetchProviders, providerCount, startStreamListening, stopStreamListening]);
+  }, [conversationCount, fetchConversations, fetchProviders, providerCount]);
 
   return (
     <div className="flex h-full" style={{ overflow: 'hidden' }}>

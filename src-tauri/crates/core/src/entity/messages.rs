@@ -23,6 +23,8 @@ pub struct Model {
     pub is_active: i32,
     pub tool_calls_json: Option<String>,
     pub tool_call_id: Option<String>,
+    #[sea_orm(default_value = "complete")]
+    pub status: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

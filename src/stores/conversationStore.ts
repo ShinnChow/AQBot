@@ -146,7 +146,9 @@ function mergePreservedMessages(
     }
   }
 
-  return Array.from(merged.values()).sort((left, right) => left.created_at - right.created_at);
+  return Array.from(merged.values()).sort(
+    (left, right) => left.created_at - right.created_at || left.id.localeCompare(right.id),
+  );
 }
 
 function mergeOlderPages(olderMessages: Message[], currentMessages: Message[]): Message[] {
@@ -157,7 +159,9 @@ function mergeOlderPages(olderMessages: Message[], currentMessages: Message[]): 
   for (const message of currentMessages) {
     merged.set(message.id, message);
   }
-  return Array.from(merged.values()).sort((left, right) => left.created_at - right.created_at);
+  return Array.from(merged.values()).sort(
+    (left, right) => left.created_at - right.created_at || left.id.localeCompare(right.id),
+  );
 }
 
 function mergeConversationCollections(
@@ -301,6 +305,7 @@ interface ConversationState {
   searchConversations: (query: string) => Promise<ConversationSearchResult[]>;
   startStreamListening: () => Promise<void>;
   stopStreamListening: () => void;
+  cancelCurrentStream: () => void;
   switchMessageVersion: (conversationId: string, parentMessageId: string, messageId: string) => Promise<void>;
   listMessageVersions: (conversationId: string, parentMessageId: string) => Promise<Message[]>;
   deleteMessageGroup: (conversationId: string, userMessageId: string) => Promise<void>;
@@ -434,6 +439,7 @@ function flushPendingStreamChunk(
       parent_message_id: null,
       version_index: 0,
       is_active: true,
+      status: 'partial',
     };
     return {
       messages: [...s.messages, newMessage],
@@ -628,6 +634,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         parent_message_id: null,
         version_index: 0,
         is_active: true,
+        status: 'complete',
       };
       set((s) => ({ messages: [...s.messages, localMsg] }));
     }
@@ -795,6 +802,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
             parent_message_id: null,
             version_index: 0,
             is_active: true,
+            status: 'partial',
           };
           return {
             messages: [...s.messages, newMessage],
@@ -1013,6 +1021,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       parent_message_id: null,
       version_index: 0,
       is_active: true,
+      status: 'complete',
     };
 
     // Create assistant placeholder upfront (for search status or streaming)
@@ -1033,6 +1042,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       parent_message_id: null,
       version_index: 0,
       is_active: true,
+      status: 'partial',
     };
 
     set((s) => ({
@@ -1111,14 +1121,14 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         messages: s.streamingMessageId
           ? s.messages.map(m =>
               m.id === s.streamingMessageId
-                ? { ...m, content: `%%ERROR%%${errMsg}` }
+                ? { ...m, content: errMsg, status: 'error' as const }
                 : m
             )
           : [...s.messages, {
               id: `temp-error-${Date.now()}`,
               conversation_id: conversationId,
               role: 'assistant' as const,
-              content: `%%ERROR%%${errMsg}`,
+              content: errMsg,
               provider_id: null,
               model_id: null,
               token_count: null,
@@ -1130,6 +1140,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
               parent_message_id: null,
               version_index: 0,
               is_active: true,
+              status: 'error' as const,
             }],
       }));
     }
@@ -1178,6 +1189,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       parent_message_id: userMsg.id,
       version_index: 0,
       is_active: true,
+      status: 'partial',
     };
 
     // Replace the active AI message in-place with placeholder (preserve position)
@@ -1243,7 +1255,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         messages: s.streamingMessageId
           ? s.messages.map(m =>
               m.id === s.streamingMessageId
-                ? { ...m, content: `%%ERROR%%${errMsg}` }
+                ? { ...m, content: errMsg, status: 'error' as const }
                 : m
             )
           : s.messages,
@@ -1283,6 +1295,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       parent_message_id: userMsg.id,
       version_index: 0,
       is_active: true,
+      status: 'partial',
     };
 
     // Replace the active AI message in-place with placeholder
@@ -1349,7 +1362,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         messages: s.streamingMessageId
           ? s.messages.map(m =>
               m.id === s.streamingMessageId
-                ? { ...m, content: `%%ERROR%%${errMsg}` }
+                ? { ...m, content: errMsg, status: 'error' as const }
                 : m
             )
           : s.messages,
@@ -1540,7 +1553,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         thinkingActiveMessageId: null,
         messages: s.messages.map(m =>
           m.id === message_id || m.id === s.streamingMessageId
-            ? { ...m, content: `%%ERROR%%${errMsg}` }
+            ? { ...m, content: errMsg, status: 'error' as const }
             : m
         ),
       }));
@@ -1584,12 +1597,15 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
   },
 
   stopStreamListening: () => {
-    flushPendingStreamChunk(set, get);
     _listenerGen++;
     if (_unlisten) {
       _unlisten();
       _unlisten = null;
     }
+  },
+
+  cancelCurrentStream: () => {
+    flushPendingStreamChunk(set, get);
     _pendingUiChunk = null;
     _streamBuffer = null;
     _pendingConversationRefresh.clear();
@@ -1597,12 +1613,22 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       clearTimeout(_streamUiFlushTimer);
       _streamUiFlushTimer = null;
     }
-    set({
+    // Tell the backend to cancel the stream — fire and forget
+    const conversationId = get().streamingConversationId ?? get().activeConversationId;
+    if (conversationId && isTauri()) {
+      invoke('cancel_stream', { conversationId }).catch(() => {});
+    }
+    // Mark the current streaming message as partial
+    const streamMsgId = get().streamingMessageId;
+    set((s) => ({
       streaming: false,
       streamingMessageId: null,
       streamingConversationId: null,
       thinkingActiveMessageId: null,
-    });
+      messages: streamMsgId
+        ? s.messages.map(m => m.id === streamMsgId ? { ...m, status: 'partial' as const } : m)
+        : s.messages,
+    }));
   },
 
   switchMessageVersion: async (conversationId, parentMessageId, messageId) => {

@@ -3,6 +3,8 @@ use aqbot_core::types::*;
 use aqbot_providers::{ProviderRequestContext, registry::ProviderRegistry, resolve_base_url};
 use base64::Engine;
 use sea_orm::*;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use tauri::{Emitter, State};
 
 fn provider_type_to_registry_key(pt: &ProviderType) -> &'static str {
@@ -254,14 +256,21 @@ async fn consume_stream(
     stream: &mut std::pin::Pin<Box<dyn futures::Stream<Item = aqbot_core::error::Result<ChatStreamChunk>> + Send>>,
     conversation_id: &str,
     message_id: &str,
-) -> (String, String, Option<TokenUsage>, Option<Vec<ToolCall>>) {
+    cancel_flag: &AtomicBool,
+) -> (String, String, Option<TokenUsage>, Option<Vec<ToolCall>>, Option<String>) {
     use futures::StreamExt;
     let mut full_content = String::new();
     let mut full_thinking = String::new();
     let mut final_usage: Option<TokenUsage> = None;
     let mut final_tool_calls: Option<Vec<ToolCall>> = None;
+    let mut stream_error: Option<String> = None;
 
     while let Some(result) = stream.next().await {
+        // Check for cancellation
+        if cancel_flag.load(std::sync::atomic::Ordering::Relaxed) {
+            tracing::info!("[consume_stream] Cancelled by user");
+            break;
+        }
         match result {
             Ok(chunk) => {
                 let mut emitted_chunk = chunk.clone();
@@ -301,21 +310,23 @@ async fn consume_stream(
                 }
             }
             Err(e) => {
+                let err_msg = format!("{}", e);
                 let _ = app.emit(
                     "chat-stream-error",
                     ChatStreamErrorEvent {
                         conversation_id: conversation_id.to_string(),
                         message_id: message_id.to_string(),
-                        error: format!("{}", e),
+                        error: err_msg.clone(),
                     },
                 );
                 tracing::error!("Stream error: {}", e);
+                stream_error = Some(err_msg);
                 break;
             }
         }
     }
 
-    (full_content, full_thinking, final_usage, final_tool_calls)
+    (full_content, full_thinking, final_usage, final_tool_calls, stream_error)
 }
 
 async fn execute_tool_call(
@@ -345,7 +356,12 @@ async fn execute_tool_call(
 
     let result = match server.transport.as_str() {
         "builtin" => {
-            aqbot_core::builtin_tools::dispatch(&server.name, &tool_call.function.name, arguments).await
+            match tokio::time::timeout(timeout_duration,
+                aqbot_core::builtin_tools::dispatch(&server.name, &tool_call.function.name, arguments)
+            ).await {
+                Ok(r) => r,
+                Err(_) => return (format!("Error: Tool execution timed out after {}s", timeout_secs), true),
+            }
         }
         "stdio" => {
             let command = match &server.command {
@@ -670,6 +686,19 @@ pub async fn regenerate_conversation_title(
     Ok(())
 }
 
+#[tauri::command]
+pub async fn cancel_stream(
+    state: State<'_, AppState>,
+    conversation_id: String,
+) -> Result<(), String> {
+    let flags = state.stream_cancel_flags.lock().await;
+    if let Some(flag) = flags.get(&conversation_id) {
+        flag.store(true, std::sync::atomic::Ordering::Relaxed);
+        tracing::info!("[cancel_stream] Cancel requested for conversation {}", conversation_id);
+    }
+    Ok(())
+}
+
 /// Spawn the streaming background task shared by send_message and regenerate_message.
 /// Returns the assistant message_id that will be populated as chunks arrive.
 fn spawn_stream_task(
@@ -693,6 +722,8 @@ fn spawn_stream_task(
     force_max_tokens: Option<bool>,
     settings: AppSettings,
     master_key: [u8; 32],
+    cancel_flag: Arc<AtomicBool>,
+    cancel_flags: Arc<tokio::sync::Mutex<std::collections::HashMap<String, Arc<AtomicBool>>>>,
 ) {
     let model_id = conversation.model_id.clone();
 
@@ -718,11 +749,46 @@ fn spawn_stream_task(
         let mut total_thinking = String::new();
         let mut total_usage: Option<TokenUsage> = None;
         let mut final_tool_calls_json: Option<String> = None;
+        let mut had_stream_error = false;
+
+        // Early create: persist a placeholder message so it survives crash/refresh
+        if let Err(e) = (aqbot_core::entity::messages::ActiveModel {
+            id: Set(assistant_message_id.clone()),
+            conversation_id: Set(conversation_id.clone()),
+            role: Set("assistant".to_string()),
+            content: Set(String::new()),
+            provider_id: Set(Some(provider.id.clone())),
+            model_id: Set(Some(model_id.clone())),
+            token_count: Set(None),
+            prompt_tokens: Set(None),
+            completion_tokens: Set(None),
+            attachments: Set("[]".to_string()),
+            thinking: Set(None),
+            created_at: Set(override_created_at.unwrap_or_else(aqbot_core::utils::now_ts)),
+            branch_id: Set(None),
+            parent_message_id: Set(Some(parent_message_id.clone())),
+            version_index: Set(version_index),
+            is_active: Set(1),
+            tool_calls_json: Set(None),
+            tool_call_id: Set(None),
+            status: Set("partial".to_string()),
+        })
+        .insert(&db)
+        .await
+        {
+            tracing::error!("Failed to create placeholder assistant message: {}", e);
+        }
 
         loop {
             iteration += 1;
             if iteration > MAX_TOOL_ITERATIONS {
                 tracing::warn!("Tool call loop exceeded max iterations ({})", MAX_TOOL_ITERATIONS);
+                break;
+            }
+
+            // Check cancellation before starting a new iteration
+            if cancel_flag.load(std::sync::atomic::Ordering::Relaxed) {
+                tracing::info!("[spawn_stream_task] Cancelled by user before iteration {}", iteration);
                 break;
             }
 
@@ -743,13 +809,19 @@ fn spawn_stream_task(
             };
 
             let mut stream = adapter.chat_stream(&ctx, request);
-            let (content, thinking, usage, tool_calls) =
-                consume_stream(&app, &mut stream, &conversation_id, &assistant_message_id).await;
+            let (content, thinking, usage, tool_calls, stream_error) =
+                consume_stream(&app, &mut stream, &conversation_id, &assistant_message_id, &cancel_flag).await;
 
             total_content.push_str(&content);
             total_thinking.push_str(&thinking);
             if usage.is_some() {
                 total_usage = usage;
+            }
+
+            // If stream errored, save what we have and break
+            if stream_error.is_some() {
+                had_stream_error = true;
+                break;
             }
 
             // If no tool calls, we're done
@@ -895,34 +967,33 @@ fn spawn_stream_task(
             // Continue loop — will call provider again with tool results
         }
 
-        // After loop: save final assistant message to DB
+        // After loop: update the placeholder message with final content and status
+        let was_cancelled = cancel_flag.load(std::sync::atomic::Ordering::Relaxed);
+        let final_status = if had_stream_error {
+            "error"
+        } else if was_cancelled {
+            "partial"
+        } else {
+            "complete"
+        };
         let token_count = total_usage.as_ref().map(|u| u.completion_tokens);
         let prompt_tokens = total_usage.as_ref().map(|u| u.prompt_tokens);
         let completion_tokens = total_usage.as_ref().map(|u| u.completion_tokens);
-        if let Err(e) = (aqbot_core::entity::messages::ActiveModel {
+        if let Err(e) = aqbot_core::entity::messages::Entity::update(aqbot_core::entity::messages::ActiveModel {
             id: Set(assistant_message_id.clone()),
-            conversation_id: Set(conversation_id.clone()),
-            role: Set("assistant".to_string()),
             content: Set(total_content.clone()),
-            provider_id: Set(Some(provider.id.clone())),
-            model_id: Set(Some(model_id.clone())),
             token_count: Set(token_count.map(|v| v as i64)),
             prompt_tokens: Set(prompt_tokens.map(|v| v as i64)),
             completion_tokens: Set(completion_tokens.map(|v| v as i64)),
-            attachments: Set("[]".to_string()),
             thinking: Set(if total_thinking.is_empty() { None } else { Some(total_thinking.clone()) }),
-            created_at: Set(override_created_at.unwrap_or_else(aqbot_core::utils::now_ts)),
-            branch_id: Set(None),
-            parent_message_id: Set(Some(parent_message_id.clone())),
-            version_index: Set(version_index),
-            is_active: Set(1),
             tool_calls_json: Set(final_tool_calls_json),
-            tool_call_id: Set(None),
+            status: Set(final_status.to_string()),
+            ..Default::default()
         })
-        .insert(&db)
+        .exec(&db)
         .await
         {
-            tracing::error!("Failed to save assistant message: {}", e);
+            tracing::error!("Failed to update assistant message: {}", e);
         }
 
         // Increment message count for the assistant message
@@ -1002,6 +1073,9 @@ fn spawn_stream_task(
                 }
             }
         }
+
+        // Clean up cancel flag
+        cancel_flags.lock().await.remove(&conversation_id);
     });
 }
 
@@ -1191,6 +1265,10 @@ pub async fn send_message(
         if m.role == MessageRole::Assistant && m.tool_calls_json.is_some() {
             continue;
         }
+        // Skip error messages — they should not be sent as context
+        if m.status == "error" {
+            continue;
+        }
         history_messages.push(chat_message_from_message(&file_store, m).map_err(|e| e.to_string())?);
     }
 
@@ -1334,6 +1412,8 @@ pub async fn send_message(
     }
 
     let user_msg_id = user_message.id.clone();
+    let cancel_flag = Arc::new(AtomicBool::new(false));
+    state.stream_cancel_flags.lock().await.insert(conversation_id.clone(), cancel_flag.clone());
     spawn_stream_task(
         app,
         state.sea_db.clone(),
@@ -1350,11 +1430,13 @@ pub async fn send_message(
         tools,
         thinking_budget,
         mcp_ids,
-        None,
+        Some(user_message.created_at + 1),
         use_max_completion_tokens,
         force_max_tokens,
         global_settings,
         state.master_key,
+        cancel_flag,
+        state.stream_cancel_flags.clone(),
     );
 
     // Return the user message immediately
@@ -1538,6 +1620,10 @@ pub async fn regenerate_message(
         {
             continue;
         }
+        // Skip error messages — they should not be sent as context
+        if m.status == "error" {
+            continue;
+        }
         // Include messages up to and including the last user message
         chat_messages.push(chat_message_from_message(&file_store, m).map_err(|e| e.to_string())?);
         // Stop after the user message we're regenerating from
@@ -1611,6 +1697,8 @@ pub async fn regenerate_message(
         }
     }
 
+    let cancel_flag = Arc::new(AtomicBool::new(false));
+    state.stream_cancel_flags.lock().await.insert(conversation_id.clone(), cancel_flag.clone());
     spawn_stream_task(
         app,
         state.sea_db.clone(),
@@ -1632,6 +1720,8 @@ pub async fn regenerate_message(
         force_max_tokens,
         global_settings,
         state.master_key,
+        cancel_flag,
+        state.stream_cancel_flags.clone(),
     );
 
     Ok(())
@@ -1783,6 +1873,10 @@ pub async fn regenerate_with_model(
         {
             continue;
         }
+        // Skip error messages — they should not be sent as context
+        if m.status == "error" {
+            continue;
+        }
         chat_messages.push(chat_message_from_message(&file_store, m).map_err(|e| e.to_string())?);
         if m.id == user_msg.id {
             break;
@@ -1850,6 +1944,8 @@ pub async fn regenerate_with_model(
         }
     }
 
+    let cancel_flag = Arc::new(AtomicBool::new(false));
+    state.stream_cancel_flags.lock().await.insert(conversation_id.clone(), cancel_flag.clone());
     spawn_stream_task(
         app,
         state.sea_db.clone(),
@@ -1871,6 +1967,8 @@ pub async fn regenerate_with_model(
         force_max_tokens,
         global_settings,
         state.master_key,
+        cancel_flag,
+        state.stream_cancel_flags.clone(),
     );
 
     Ok(())

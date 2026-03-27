@@ -241,6 +241,7 @@ pub struct Message {
     pub is_active: bool,
     pub tool_calls_json: Option<String>,
     pub tool_call_id: Option<String>,
+    pub status: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

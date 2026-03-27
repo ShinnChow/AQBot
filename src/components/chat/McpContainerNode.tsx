@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Collapse, Tag } from 'antd';
 import { CheckCircle, Loader, XCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -90,6 +90,16 @@ function McpToolCard({ node }: { node: any }) {
   const rawArgs = safeGetAttr(node.attrs, 'arguments');
   const isLoading = Boolean(node.loading);
 
+  const [activeKey, setActiveKey] = useState<string[]>(isLoading ? ['1'] : []);
+
+  useEffect(() => {
+    if (isLoading) {
+      setActiveKey(['1']);
+    } else {
+      setActiveKey([]);
+    }
+  }, [isLoading]);
+
   const resultText = useMemo(() => {
     if (isLoading) return '';
     return extractText(node.children);
@@ -144,8 +154,8 @@ function McpToolCard({ node }: { node: any }) {
     <span style={{ display: 'block', margin: '8px 0' }}>
       <Collapse
         size="small"
-        activeKey={isLoading ? ['1'] : undefined}
-        defaultActiveKey={isLoading ? ['1'] : undefined}
+        activeKey={activeKey}
+        onChange={(keys) => setActiveKey(keys as string[])}
         items={hasContent ? [{
           key: '1',
           label: headerLabel,

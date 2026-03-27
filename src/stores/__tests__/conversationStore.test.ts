@@ -27,6 +27,7 @@ function makeMessage(index: number, conversationId = 'conv-1'): Message {
     parent_message_id: null,
     version_index: 0,
     is_active: true,
+    status: 'complete',
   };
 }
 
@@ -351,7 +352,7 @@ describe('conversationStore pagination', () => {
       },
     });
 
-    useConversationStore.getState().stopStreamListening();
+    useConversationStore.getState().cancelCurrentStream();
 
     expect(useConversationStore.getState().messages[0]?.content).toBe('Hello world');
 

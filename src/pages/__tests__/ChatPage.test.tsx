@@ -3,15 +3,11 @@ import { render } from '@testing-library/react';
 import { ChatPage } from '../ChatPage';
 
 const fetchConversations = vi.fn();
-const startStreamListening = vi.fn();
-const stopStreamListening = vi.fn();
 const fetchProviders = vi.fn();
 
 const conversationState = {
   conversations: [] as Array<{ id: string }>,
   fetchConversations,
-  startStreamListening,
-  stopStreamListening,
 };
 
 const providerState = {
@@ -51,15 +47,10 @@ describe('ChatPage', () => {
   });
 
   it('fetches conversations and providers only when the stores are empty', () => {
-    const { unmount } = render(<ChatPage />);
+    render(<ChatPage />);
 
     expect(fetchConversations).toHaveBeenCalledTimes(1);
     expect(fetchProviders).toHaveBeenCalledTimes(1);
-    expect(startStreamListening).toHaveBeenCalledTimes(1);
-
-    unmount();
-
-    expect(stopStreamListening).toHaveBeenCalledTimes(1);
   });
 
   it('skips refetching when conversations and providers are already loaded', () => {
@@ -70,6 +61,5 @@ describe('ChatPage', () => {
 
     expect(fetchConversations).not.toHaveBeenCalled();
     expect(fetchProviders).not.toHaveBeenCalled();
-    expect(startStreamListening).toHaveBeenCalledTimes(1);
   });
 });

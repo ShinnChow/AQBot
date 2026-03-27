@@ -54,6 +54,7 @@ fn message_from_entity(m: messages::Model) -> Result<Message> {
         is_active: m.is_active == 1,
         tool_calls_json: m.tool_calls_json,
         tool_call_id: m.tool_call_id,
+        status: m.status,
     })
 }
 
@@ -322,6 +323,7 @@ pub async fn create_tool_result_message(
         is_active: Set(0),
         tool_calls_json: Set(None),
         tool_call_id: Set(Some(tool_call_id.to_string())),
+        status: Set("complete".to_string()),
     }
     .insert(db)
     .await?;
@@ -359,6 +361,7 @@ pub async fn create_assistant_tool_call_message(
         is_active: Set(0),
         tool_calls_json: Set(tool_calls_json.map(|s| s.to_string())),
         tool_call_id: Set(None),
+        status: Set("complete".to_string()),
     }
     .insert(db)
     .await?;

@@ -7,7 +7,7 @@ import { TitleBar } from '@/components/layout/TitleBar';
 import { ContentArea } from '@/components/layout/ContentArea';
 import CommandPalette from '@/components/layout/CommandPalette';
 import { useCommandPalette } from '@/hooks/useCommandPalette';
-import { useUIStore, useSettingsStore } from '@/stores';
+import { useUIStore, useSettingsStore, useConversationStore } from '@/stores';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useGlobalShortcutManager } from '@/hooks/useGlobalShortcutManager';
 import { useResolvedDarkMode } from '@/hooks/useResolvedDarkMode';
@@ -42,6 +42,14 @@ function AppInner() {
     root.style.setProperty('--color-text-secondary', token.colorTextSecondary);
     root.style.setProperty('--color-primary', token.colorPrimary);
   }, [token]);
+
+  // Global stream event listeners — persist across page navigation
+  const startStreamListening = useConversationStore((s) => s.startStreamListening);
+  const stopStreamListening = useConversationStore((s) => s.stopStreamListening);
+  useEffect(() => {
+    startStreamListening();
+    return () => stopStreamListening();
+  }, [startStreamListening, stopStreamListening]);
 
   // Auto-check for updates on startup (delayed to let app initialize first)
   useEffect(() => {

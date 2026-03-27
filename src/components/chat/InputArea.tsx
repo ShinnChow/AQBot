@@ -44,7 +44,7 @@ export function InputArea() {
   const { message: messageApi, modal } = App.useApp();
   const streaming = useConversationStore((s) => s.streaming);
   const compressing = useConversationStore((s) => s.compressing);
-  const stopStreamListening = useConversationStore((s) => s.stopStreamListening);
+  const cancelCurrentStream = useConversationStore((s) => s.cancelCurrentStream);
   const activeConversationId = useConversationStore((s) => s.activeConversationId);
   const sendMessage = useConversationStore((s) => s.sendMessage);
   const createConversation = useConversationStore((s) => s.createConversation);
@@ -464,7 +464,7 @@ export function InputArea() {
     if (streaming) return;
     const lastUserMessage = [...messages]
       .reverse()
-      .find((message) => message.role === 'user' && !message.content.startsWith('%%ERROR%%'));
+      .find((message) => message.role === 'user' && message.status !== 'error');
     if (!lastUserMessage?.content) return;
     setValue(lastUserMessage.content);
     requestAnimationFrame(() => {
@@ -477,8 +477,8 @@ export function InputArea() {
   }, [messages, streaming]);
 
   const handleCancel = useCallback(() => {
-    stopStreamListening();
-  }, [stopStreamListening]);
+    cancelCurrentStream();
+  }, [cancelCurrentStream]);
 
   const handleFileSelect = useCallback(() => {
     fileInputRef.current?.click();

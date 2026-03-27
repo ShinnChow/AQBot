@@ -1176,11 +1176,8 @@ function AssistantFooter({
               icon: <Copy size={14} />,
               label: t('chat.copy'),
               onItemClick: () => {
-                const text = assistantCopyText.startsWith('%%ERROR%%')
-                  ? assistantCopyText.replace('%%ERROR%%', '')
-                  : assistantCopyText;
                 navigator.clipboard
-                  .writeText(text)
+                  .writeText(assistantCopyText)
                   .then(() => messageApi.success(t('chat.copied')));
               },
             },
@@ -1738,7 +1735,12 @@ export function ChatView() {
     const next = new Map<string, ChatMarkdownNode[]>();
 
     for (const item of bubbleItems) {
-      if (item.role !== 'ai' || typeof item.content !== 'string' || item.content.startsWith('%%ERROR%%')) {
+      if (item.role !== 'ai' || typeof item.content !== 'string') {
+        continue;
+      }
+      // Skip error messages — they render as Alert, not markdown
+      const msg = assistantByParentId.get(String(item.key)) ?? messageById.get(String(item.key));
+      if (msg?.status === 'error') {
         continue;
       }
 
@@ -1761,7 +1763,7 @@ export function ChatView() {
     }
 
     return next;
-  }, [bubbleItems]);
+  }, [bubbleItems, assistantByParentId, messageById]);
   // ── Format timestamp ──────────────────────────────────────────────
   const formatTime = useCallback((ts: number) => {
     const d = new Date(ts);
@@ -1883,8 +1885,8 @@ export function ChatView() {
       avatar: renderConvIconForChat(32, msg?.model_id),
       loading: bubbleLoading,
       contentRender: (content: string) => {
-        if (typeof content === 'string' && content.startsWith('%%ERROR%%')) {
-          return <Alert type="error" message={content.replace('%%ERROR%%', '')} showIcon />;
+        if (msg?.status === 'error') {
+          return <Alert type="error" message={content} showIcon />;
         }
         return (
           <AssistantMarkdown
@@ -1913,6 +1915,11 @@ export function ChatView() {
                 <Typography.Text type="secondary" style={{ fontSize: 11 }}>
                   {formatTime(msg.created_at)}
                 </Typography.Text>
+              )}
+              {msg?.status === 'partial' && !isStreaming && (
+                <Tag color="warning" style={{ fontSize: 10, margin: 0, padding: '0 4px', lineHeight: '16px', border: 'none' }}>
+                  {t('chat.partial', '主动停止')}
+                </Tag>
               )}
             </div>
           </div>

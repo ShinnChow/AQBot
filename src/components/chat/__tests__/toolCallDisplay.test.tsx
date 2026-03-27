@@ -20,6 +20,7 @@ function makeMessage(overrides: Partial<Message>): Message {
     parent_message_id: null,
     version_index: 0,
     is_active: true,
+    status: 'complete',
     ...overrides,
   };
 }

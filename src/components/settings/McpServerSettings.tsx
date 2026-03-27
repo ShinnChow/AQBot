@@ -439,21 +439,22 @@ function McpServerDetail({
             />
           </div>
           <Divider style={{ margin: '4px 0' }} />
-          <div style={rowStyle} className="flex items-center justify-between">
-            <span>{t('settings.mcpServers.executeTimeout')}</span>
-            <InputNumber
-              value={server.executeTimeoutSecs}
-              onChange={(val) => handleFieldChange('executeTimeoutSecs', val)}
-              placeholder="30"
-              min={5}
-              max={600}
-              addonAfter="s"
-              style={{ width: 160 }}
-            />
-          </div>
-          <Divider style={{ margin: '4px 0' }} />
         </>
       )}
+
+      <div style={rowStyle} className="flex items-center justify-between">
+        <span>{t('settings.mcpServers.executeTimeout')}</span>
+        <InputNumber
+          value={server.executeTimeoutSecs}
+          onChange={(val) => handleFieldChange('executeTimeoutSecs', val)}
+          placeholder="30"
+          min={5}
+          max={600}
+          addonAfter="s"
+          style={{ width: 160 }}
+        />
+      </div>
+      <Divider style={{ margin: '4px 0' }} />
 
       <div style={rowStyle} className="flex items-center justify-between">
         <span>{t('common.enabled')}</span>

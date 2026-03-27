@@ -20,6 +20,7 @@ pub struct AppState {
     pub db_path: String,
     pub auto_backup_handle: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
     pub vector_store: Arc<aqbot_core::vector_store::VectorStore>,
+    pub stream_cancel_flags: Arc<Mutex<std::collections::HashMap<String, Arc<AtomicBool>>>>,
 }
 
 mod commands;
@@ -83,6 +84,7 @@ pub fn run() {
             commands::conversations::list_archived_conversations,
             commands::conversations::regenerate_message,
             commands::conversations::regenerate_with_model,
+            commands::conversations::cancel_stream,
             commands::conversations::list_message_versions,
             commands::conversations::switch_message_version,
             commands::conversations::delete_message_group,
@@ -332,6 +334,7 @@ pub fn run() {
                 db_path: db_path,
                 auto_backup_handle: Arc::new(Mutex::new(None)),
                 vector_store: Arc::new(vector_store),
+                stream_cancel_flags: Arc::new(Mutex::new(std::collections::HashMap::new())),
             });
 
             if let Some(main_window) = app.get_webview_window("main") {

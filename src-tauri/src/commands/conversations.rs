@@ -296,6 +296,31 @@ async fn consume_stream(
                 }
                 let is_done = chunk.done;
 
+                // Detect empty response: stream ended (done=true) but no useful
+                // content was produced.  Emit a stream error instead of the done
+                // chunk so the frontend error handler fires (streaming is still
+                // true at this point) and the user sees an error, not a blank bubble.
+                if is_done
+                    && full_content.is_empty()
+                    && full_thinking.is_empty()
+                    && final_tool_calls
+                        .as_ref()
+                        .is_none_or(|tc| tc.is_empty())
+                {
+                    let err_msg = "Provider returned empty response".to_string();
+                    let _ = app.emit(
+                        "chat-stream-error",
+                        ChatStreamErrorEvent {
+                            conversation_id: conversation_id.to_string(),
+                            message_id: message_id.to_string(),
+                            error: err_msg.clone(),
+                        },
+                    );
+                    tracing::warn!("[consume_stream] Empty response from provider");
+                    stream_error = Some(err_msg);
+                    break;
+                }
+
                 let _ = app.emit(
                     "chat-stream-chunk",
                     ChatStreamEvent {
@@ -754,6 +779,7 @@ fn spawn_stream_task(
         let mut total_usage: Option<TokenUsage> = None;
         let mut final_tool_calls_json: Option<String> = None;
         let mut had_stream_error = false;
+        let mut last_stream_error: Option<String> = None;
 
         // Early create: persist a placeholder message so it survives crash/refresh
         if let Err(e) = (aqbot_core::entity::messages::ActiveModel {
@@ -824,6 +850,7 @@ fn spawn_stream_task(
 
             // If stream errored, save what we have and break
             if stream_error.is_some() {
+                last_stream_error = stream_error;
                 had_stream_error = true;
                 break;
             }
@@ -980,6 +1007,19 @@ fn spawn_stream_task(
         } else {
             "complete"
         };
+
+        // If the stream errored and produced no content, persist the error
+        // details (URL, model, provider) so the user sees diagnostic info
+        // even after a page refresh.
+        if had_stream_error && total_content.is_empty() {
+            let err = last_stream_error.as_deref().unwrap_or("Unknown error");
+            let base_url = ctx.base_url.as_deref().unwrap_or("(not set)");
+            let api_path = ctx.api_path.as_deref().unwrap_or("");
+            total_content = format!(
+                "{}\n\nBase URL: {}{}\nModel: {}\nProvider: {} ({:?})",
+                err, base_url, api_path, model_id, provider.name, provider.provider_type,
+            );
+        }
         let token_count = total_usage.as_ref().map(|u| u.completion_tokens);
         let prompt_tokens = total_usage.as_ref().map(|u| u.prompt_tokens);
         let completion_tokens = total_usage.as_ref().map(|u| u.completion_tokens);

@@ -411,15 +411,16 @@ export function ConversationSettingsModal({ open, onClose }: ConversationSetting
               <Slider
                 style={{ flex: 1 }}
                 min={256}
-                max={16384}
+                max={10485760}
                 step={256}
+                marks={{ 256: '', 32768: '32K', 131072: '128K', 1048576: '1M', 10485760: '10M' }}
                 value={effectiveMaxTokens}
                 onChange={(v) => setMaxTokens(v)}
               />
               <InputNumber
-                style={{ width: 70 }}
+                style={{ width: 90 }}
                 min={256}
-                max={16384}
+                max={10485760}
                 step={256}
                 value={effectiveMaxTokens}
                 onChange={(v) => setMaxTokens(v)}

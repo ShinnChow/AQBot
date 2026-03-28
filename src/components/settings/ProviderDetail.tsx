@@ -1370,8 +1370,8 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                 {/* Max Tokens */}
                 <div className="flex items-center gap-3">
                   <span className="text-sm shrink-0" style={{ color: token.colorText, width: 80 }}>{t('settings.maxTokens')}</span>
-                  <Slider style={{ flex: 1 }} min={256} max={32768} step={256} marks={{ 256: '', 8192: '8K', 16384: '16K', 32768: '32K' }} value={editMaxTokensParam} onChange={setEditMaxTokensParam} />
-                  <InputNumber style={{ width: 70 }} min={256} max={32768} step={256} size="small" value={editMaxTokensParam} onChange={(v) => setEditMaxTokensParam(v ?? 256)} />
+                  <Slider style={{ flex: 1 }} min={256} max={10485760} step={256} marks={{ 256: '', 32768: '32K', 131072: '128K', 1048576: '1M', 10485760: '10M' }} value={editMaxTokensParam} onChange={setEditMaxTokensParam} />
+                  <InputNumber style={{ width: 90 }} min={256} max={10485760} step={256} size="small" value={editMaxTokensParam} onChange={(v) => setEditMaxTokensParam(v ?? 256)} />
                 </div>
 
                 {/* Top P */}

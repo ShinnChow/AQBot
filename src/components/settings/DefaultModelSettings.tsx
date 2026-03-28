@@ -244,7 +244,7 @@ function ModelParamsModal({
         tooltip={t('settings.maxTokensTooltip', '模型生成的最大 Token 数量')}
         value={settings[maxTokensKey] as number | null}
         defaultValue={defaultMaxTokens}
-        min={256} max={32768} step={256}
+        min={256} max={10485760} step={256}
         onChange={(v) => saveSettings({ [maxTokensKey]: v } as Partial<AppSettings>)}
       />
     </Modal>

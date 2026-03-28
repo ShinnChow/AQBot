@@ -5,7 +5,9 @@ on:
     branches: ["main"]
     paths:
       - "website/**"
-      - "package.json"
+
+  release:
+    types: [published]
 
   workflow_dispatch:
 

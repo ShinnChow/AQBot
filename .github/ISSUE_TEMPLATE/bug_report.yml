@@ -1,6 +1,5 @@
 name: 🐛 提交 BUG
 description: 报告一个 Bug 以帮助我们改进
-title: "[BUG] "
 labels: ["bug"]
 body:
   - type: dropdown

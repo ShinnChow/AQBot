@@ -1,6 +1,5 @@
 name: 💡 提交建议
 description: 提出你的功能建议或改进想法
-title: "[建议] "
 labels: ["enhancement"]
 body:
   - type: textarea

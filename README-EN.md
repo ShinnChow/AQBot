@@ -1,20 +1,6 @@
-<div align="center">
-  <img src="src/assets/image/logo.png" alt="AQBot" width="120" />
-  <h1>AQBot</h1>
+![AQBot](https://socialify.git.ci/AQBot-Desktop/AQBot/image?description=1&font=Rokkitt&forks=1&issues=1&logo=https%3A%2F%2Fgithub.com%2FAQBot-Desktop%2FAQBot%2Fblob%2Fmain%2Fsrc%2Fassets%2Fimage%2Flogo.png%3Fraw%3Dtrue&name=1&owner=1&pattern=Signal&pulls=1&stargazers=1&theme=Auto)
 
-  <p><strong>High-Performance Cross-Platform AI Chat Desktop Client</strong></p>
-  <p>A desktop AI assistant integrating multi-model chat, local knowledge base, MCP tool extensions, and an API gateway</p>
-
-  [简体中文](./README.md) | English
-
-  ![Tauri](https://img.shields.io/badge/Tauri-v2-FFC131?style=flat-square&logo=tauri&logoColor=white)
-  ![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white)
-  ![Rust](https://img.shields.io/badge/Rust-2021-000000?style=flat-square&logo=rust&logoColor=white)
-  ![License](https://img.shields.io/badge/License-AGPL--3.0-8b5cf6?style=flat-square)
-
-</div>
-
----
+[简体中文](./README.md) | English
 
 ## Screenshots
 

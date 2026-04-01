@@ -1,4 +1,5 @@
 use aqbot_core::db;
+use chrono;
 use sea_orm::DatabaseConnection;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -388,21 +389,36 @@ pub fn run() {
                 tauri::async_runtime::spawn(async move {
                     if let Ok(settings) = aqbot_core::repo::settings::get_settings(&db).await {
                         if settings.auto_backup_enabled && settings.auto_backup_interval_hours > 0 {
-                            let backup_settings = aqbot_core::types::AutoBackupSettings {
-                                enabled: true,
-                                interval_hours: settings.auto_backup_interval_hours,
-                                max_count: settings.auto_backup_max_count,
-                                backup_dir: settings.backup_dir,
-                            };
-                            let backup_dir_setting = backup_settings.backup_dir.clone();
+                            let backup_dir_setting = settings.backup_dir.clone();
                             let interval = settings.auto_backup_interval_hours;
                             let max_count = settings.auto_backup_max_count;
+                            let interval_secs = interval as u64 * 3600;
                             let db2 = db.clone();
                             let app_dir2 = app_data.clone();
+
+                            // Calculate initial delay: catch up if overdue
+                            let initial_delay_secs = match aqbot_core::repo::backup::list_backups(&db).await {
+                                Ok(backups) if !backups.is_empty() => {
+                                    let last_ts = &backups[0].created_at;
+                                    if let Ok(last_time) = chrono::NaiveDateTime::parse_from_str(last_ts, "%Y-%m-%d %H:%M:%S") {
+                                        let elapsed = chrono::Utc::now()
+                                            .naive_utc()
+                                            .signed_duration_since(last_time)
+                                            .num_seconds()
+                                            .max(0) as u64;
+                                        if elapsed >= interval_secs { 0 } else { interval_secs - elapsed }
+                                    } else {
+                                        interval_secs
+                                    }
+                                }
+                                _ => interval_secs,
+                            };
+
                             let task = tokio::spawn(async move {
-                                let dur = std::time::Duration::from_secs(interval as u64 * 3600);
+                                let dur = std::time::Duration::from_secs(interval_secs);
+                                // Initial wait (may be shorter if overdue)
+                                tokio::time::sleep(std::time::Duration::from_secs(initial_delay_secs)).await;
                                 loop {
-                                    tokio::time::sleep(dur).await;
                                     let backup_dir = aqbot_core::repo::backup::resolve_backup_dir(
                                         backup_dir_setting.as_deref(),
                                         &app_dir2,
@@ -417,6 +433,7 @@ pub fn run() {
                                             &db2, max_count,
                                         ).await;
                                     }
+                                    tokio::time::sleep(dur).await;
                                 }
                             });
                             *handle.lock().await = Some(task);

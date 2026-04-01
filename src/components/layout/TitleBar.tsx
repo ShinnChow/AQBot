@@ -165,14 +165,20 @@ export function TitleBar() {
 
   // Calculate next local backup timestamp from backup settings
   useEffect(() => {
-    if (!backupSettings?.enabled || !lastLocalBackup) {
+    if (!backupSettings?.enabled) {
       setNextLocalTs(null);
       return;
     }
-    const lastTime = new Date(lastLocalBackup).getTime();
-    if (Number.isNaN(lastTime)) return;
     const intervalMs = (backupSettings.intervalHours ?? 24) * 3600000;
-    setNextLocalTs(lastTime + intervalMs);
+    if (lastLocalBackup) {
+      const lastTime = new Date(lastLocalBackup).getTime();
+      if (!Number.isNaN(lastTime)) {
+        setNextLocalTs(lastTime + intervalMs);
+        return;
+      }
+    }
+    // No previous backup — next backup at now + interval
+    setNextLocalTs(Date.now() + intervalMs);
   }, [backupSettings, lastLocalBackup]);
 
   // Live countdown on button — tick every second while any backup is scheduled
@@ -180,8 +186,8 @@ export function TitleBar() {
     const tick = () => {
       const now = Date.now();
       let soonest: number | null = null;
-      if (nextLocalTs && nextLocalTs - now > 0) {
-        soonest = nextLocalTs;
+      if (nextLocalTs) {
+        if (!soonest || nextLocalTs < soonest) soonest = nextLocalTs;
       }
       if (nextWebDavTs && nextWebDavTs - now > 0) {
         if (!soonest || nextWebDavTs < soonest) soonest = nextWebDavTs;

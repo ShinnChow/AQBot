@@ -149,12 +149,31 @@ async fn restart_auto_backup(
     let app_dir = app_data_dir.clone();
     let interval_hours = settings.interval_hours;
     let max_count = settings.max_count;
+    let interval_secs = interval_hours as u64 * 3600;
+
+    // Calculate initial delay: catch up if overdue
+    let initial_delay_secs = match backup::list_backups(&db).await {
+        Ok(backups) if !backups.is_empty() => {
+            let last_ts = &backups[0].created_at;
+            if let Ok(last_time) = chrono::NaiveDateTime::parse_from_str(last_ts, "%Y-%m-%d %H:%M:%S") {
+                let elapsed = chrono::Utc::now()
+                    .naive_utc()
+                    .signed_duration_since(last_time)
+                    .num_seconds()
+                    .max(0) as u64;
+                if elapsed >= interval_secs { 0 } else { interval_secs - elapsed }
+            } else {
+                interval_secs
+            }
+        }
+        _ => interval_secs,
+    };
 
     let task = tokio::spawn(async move {
-        let interval = std::time::Duration::from_secs(interval_hours as u64 * 3600);
+        let interval = std::time::Duration::from_secs(interval_secs);
+        // Initial wait (may be shorter if overdue)
+        tokio::time::sleep(std::time::Duration::from_secs(initial_delay_secs)).await;
         loop {
-            tokio::time::sleep(interval).await;
-
             // Read current settings to get backup_dir
             let backup_dir = match get_settings(&db).await {
                 Ok(s) => backup::resolve_backup_dir(s.backup_dir.as_deref(), &app_dir),
@@ -171,6 +190,7 @@ async fn restart_auto_backup(
                     tracing::warn!("Auto-backup cleanup failed: {}", e);
                 }
             }
+            tokio::time::sleep(interval).await;
         }
     });
 

@@ -1,6 +1,6 @@
-![AQBot](https://socialify.git.ci/AQBot-Desktop/AQBot/image?description=1&font=JetBrains+Mono&forks=1&issues=1&logo=https%3A%2F%2Fgithub.com%2FAQBot-Desktop%2FAQBot%2Fblob%2Fmain%2Fsrc%2Fassets%2Fimage%2Flogo.png%3Fraw%3Dtrue&name=1&owner=1&pattern=Floating+Cogs&pulls=1&stargazers=1&theme=Auto)
+简体中文 | [English](./README-EN.md)
 
-<a href="./README-EN.md">English</a> | 简体中文
+[![AQBot](https://socialify.git.ci/AQBot-Desktop/AQBot/image?description=1&font=JetBrains+Mono&forks=1&issues=1&logo=https%3A%2F%2Fgithub.com%2FAQBot-Desktop%2FAQBot%2Fblob%2Fmain%2Fsrc%2Fassets%2Fimage%2Flogo.png%3Fraw%3Dtrue&name=1&owner=1&pattern=Floating+Cogs&pulls=1&stargazers=1&theme=Auto)](https://github.com/AQBot-Desktop/AQBot)
 
 ## 运行截图
 
@@ -21,6 +21,8 @@
 - **消息版本** — 每条回复支持多版本切换，方便对比不同模型或参数的效果
 - **对话分支** — 从任意消息节点派生新分支，支持分支间对比
 - **对话管理** — 支持置顶、归档、按时间分组、批量操作
+- **对话压缩** — 自动压缩冗长对话，保留关键信息以节省上下文空间
+- **多模型同答案** — 同一问题同时向多个模型提问，支持答案间对比分析
 
 ### 内容渲染
 
@@ -28,7 +30,7 @@
 - **Monaco 代码编辑器** — 代码块内嵌 Monaco Editor，支持语法高亮、复制、diff 预览
 - **图表渲染** — 内置 Mermaid 流程图与 D2 架构图渲染
 - **Artifact 面板** — 代码片段、HTML 草稿、Markdown 笔记、报告可在独立面板中预览
-- **实时语音对话** — 基于 WebRTC 的实时语音，兼容 OpenAI Realtime API
+- **实时语音对话** — (即将推出)基于 WebRTC 的实时语音，兼容 OpenAI Realtime API
 
 ### 搜索与知识
 
@@ -40,16 +42,14 @@
 ### 工具与扩展
 
 - **MCP 协议** — 完整实现 Model Context Protocol，支持 stdio 和 HTTP 两种传输方式
-- **内置工具** — 提供文件读写、Shell 执行、截图等开箱即用的内置工具
+- **内置工具** — 提供`@aqbot/fetch`等开箱即用的内置MCP工具
 - **工具执行面板** — 可视化展示工具调用请求与返回结果
-- **命令面板** — `Cmd/Ctrl+K` 全局命令面板，快速跳转和操作
 
 ### API 网关
 
 - **本地 API 网关** — 内置 OpenAI 兼容、Claude、Gemini等原生接口的本地 API 服务器，可作为任意兼容客户端的后端
 - **API 密钥管理** — 生成、撤销、启停访问密钥，支持描述备注
 - **用量统计** — 按密钥、供应商、日期维度的请求量与 Token 用量分析
-- **程序策略** — 为每个接入程序独立配置模型白名单与速率限制
 - **SSL/TLS 支持** — 内置自签名证书生成，也支持挂载自定义证书
 - **请求日志** — 完整记录所有经过网关的 API 请求与响应
 - **配置模板** — 预置 Claude、Codex、OpenCode、Gemini 等常见 CLI 工具的接入配置模板
@@ -58,7 +58,7 @@
 
 - **AES-256 加密** — API Key 等敏感数据使用 AES-256 加密存储于本地，主密钥权限 0600
 - **数据目录隔离** — 应用状态存储于 `~/.aqbot/`，用户文件存储于 `~/Documents/aqbot/`
-- **自动备份** — 支持定时自动备份到本地目录、WebDAV 或 S3 兼容存储
+- **自动备份** — 支持定时自动备份到本地目录、WebDAV的存储
 - **备份恢复** — 一键从历史备份恢复完整数据
 - **对话导出** — 支持将对话导出为 PNG 截图、Markdown、纯文本或 JSON 格式
 
@@ -114,17 +114,7 @@ sudo xattr -dr com.apple.quarantine /Applications/AQBot.app
 
 **3. macOS Ventura 及以上版本的额外步骤**
 
-完成上述步骤后，首次打开时仍可能被拦截。前往「系统设置 → 隐私与安全性」，在安全性区域点击「仍要打开」即可，后续无需重复操作。
-
-## 参与贡献
-
-欢迎提交 Pull Request 和 Issue。
-
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'feat: add amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 创建 Pull Request
+完成上述步骤后，首次打开时仍可能被拦截。前往 **「系统设置 → 隐私与安全性」** ，在安全性区域点击 **「仍要打开」** 即可，后续无需重复操作。
 
 ## 社区支持
 - [LinuxDO](https://linux.do)

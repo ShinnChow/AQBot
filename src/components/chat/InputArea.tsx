@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Button, Tooltip, App, theme, Dropdown, Tag, Popover, Checkbox, Badge } from 'antd';
 import type { MenuProps } from 'antd';
-import { Paperclip, Trash2, Mic, Eraser, Scissors, Globe, Brain, BrainCog, Plug, SlidersHorizontal, ArrowUp, Square, Check, Zap, ZapOff, Gauge, Shrink, Upload, LayoutGrid, X, BookOpen } from 'lucide-react';
+import { Paperclip, Trash2, Mic, Eraser, Scissors, Globe, Brain, BrainCog, Plug, SlidersHorizontal, ArrowUp, Square, Check, Zap, ZapOff, Gauge, Shrink, Upload, LayoutGrid, X, BookOpen, GripHorizontal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useConversationStore, useProviderStore, useSettingsStore, useSearchStore, useMcpStore, useMemoryStore, useKnowledgeStore } from '@/stores';
 import { useUIStore } from '@/stores/uiStore';
@@ -57,6 +57,15 @@ export function InputArea() {
   const prevConvIdRef = useRef<string | null>(
     useConversationStore.getState().activeConversationId ?? null
   );
+
+  // Drag-to-resize state: userMinHeight controls the minimum visible height of the textarea
+  const INITIAL_MIN_HEIGHT = 44;
+  const ABSOLUTE_MAX_HEIGHT = 600;
+  const [userMinHeight, setUserMinHeight] = useState(INITIAL_MIN_HEIGHT);
+  const userMinHeightRef = useRef(userMinHeight);
+  userMinHeightRef.current = userMinHeight;
+  const dragStateRef = useRef<{ startY: number; startH: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Multi-model companion state
   const [companionModels, setCompanionModels] = useState<Array<{ providerId: string; modelId: string }>>([]);
@@ -583,7 +592,8 @@ export function InputArea() {
         const textarea = textareaRef.current;
         if (textarea) {
           textarea.style.height = 'auto';
-          textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+          const desired = Math.max(textarea.scrollHeight, userMinHeightRef.current);
+          textarea.style.height = Math.min(desired, ABSOLUTE_MAX_HEIGHT) + 'px';
         }
       });
     }
@@ -601,7 +611,8 @@ export function InputArea() {
       if (!textarea) return;
       textarea.focus();
       textarea.style.height = 'auto';
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+      const desired = Math.max(textarea.scrollHeight, userMinHeightRef.current);
+      textarea.style.height = Math.min(desired, ABSOLUTE_MAX_HEIGHT) + 'px';
     });
   }, [messages, streaming]);
 
@@ -712,12 +723,47 @@ export function InputArea() {
     [handleSend],
   );
 
-  // Auto-resize textarea
+  // Auto-resize textarea: height = max(userMinHeight, contentHeight), capped at ABSOLUTE_MAX
+  const autoResizeTextarea = useCallback((el: HTMLTextAreaElement) => {
+    el.style.height = 'auto';
+    const desired = Math.max(el.scrollHeight, userMinHeightRef.current);
+    el.style.height = Math.min(desired, ABSOLUTE_MAX_HEIGHT) + 'px';
+  }, []);
+
   const handleInput = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setValue(e.target.value);
-    const el = e.target;
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+    autoResizeTextarea(e.target);
+  }, [autoResizeTextarea]);
+
+  // Drag-to-resize: changes userMinHeight so the textarea grows even with short content
+  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const textarea = textareaRef.current;
+    const startHeight = textarea ? textarea.offsetHeight : userMinHeightRef.current;
+    dragStateRef.current = { startY: e.clientY, startH: startHeight };
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!dragStateRef.current) return;
+      const delta = dragStateRef.current.startY - ev.clientY;
+      const newH = Math.max(INITIAL_MIN_HEIGHT, Math.min(ABSOLUTE_MAX_HEIGHT, dragStateRef.current.startH + delta));
+      setUserMinHeight(newH);
+      userMinHeightRef.current = newH;
+      if (textarea) {
+        textarea.style.height = 'auto';
+        const desired = Math.max(textarea.scrollHeight, newH);
+        textarea.style.height = Math.min(desired, ABSOLUTE_MAX_HEIGHT) + 'px';
+      }
+    };
+    const onMouseUp = () => {
+      dragStateRef.current = null;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
   }, []);
 
   // Listen for Escape to close voice overlay
@@ -778,7 +824,8 @@ export function InputArea() {
         if (!textarea) return;
         textarea.focus();
         textarea.style.height = 'auto';
-        textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+        const desired = Math.max(textarea.scrollHeight, userMinHeightRef.current);
+        textarea.style.height = Math.min(desired, ABSOLUTE_MAX_HEIGHT) + 'px';
       });
     };
     window.addEventListener('aqbot:fill-input', onFillInput);
@@ -821,6 +868,7 @@ export function InputArea() {
 
       {/* Main input container */}
       <div
+        ref={containerRef}
         style={{
           border: '1px solid var(--border-color)',
           borderRadius: 16,
@@ -828,6 +876,20 @@ export function InputArea() {
           overflow: 'hidden',
         }}
       >
+        {/* Drag-to-resize handle */}
+        <div
+          onMouseDown={handleResizeMouseDown}
+          style={{
+            height: 10,
+            cursor: 'ns-resize',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <GripHorizontal size={14} style={{ color: token.colorTextQuaternary, opacity: 0.5 }} />
+        </div>
         {/* Companion model tags */}
         {companionModels.length > 0 && (
           <div className="flex flex-wrap gap-1.5 px-3 pt-3 pb-1">
@@ -893,14 +955,15 @@ export function InputArea() {
             border: 'none',
             outline: 'none',
             resize: 'none',
-            padding: '14px 16px 8px',
+            padding: '4px 16px 8px',
             fontSize: token.fontSize,
             lineHeight: 1.6,
             backgroundColor: 'transparent',
             color: token.colorText,
             fontFamily: 'inherit',
-            minHeight: 44,
-            maxHeight: 200,
+            minHeight: userMinHeight,
+            maxHeight: ABSOLUTE_MAX_HEIGHT,
+            overflowY: 'auto',
           }}
         />
 

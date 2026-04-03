@@ -1,5 +1,5 @@
 import { Menu, theme } from 'antd';
-import { Cloud, Settings, Palette, Globe, Zap, Database, Info, Search, Plug, CloudUpload, Bot, HardDrive, MessageSquare } from 'lucide-react';
+import { Cloud, Settings, Palette, Globe, Zap, Database, Info, Search, Plug, CloudUpload, Bot, HardDrive, MessageSquare, ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '@/stores';
 import type { SettingsSection } from '@/types';
@@ -41,6 +41,7 @@ export function SettingsSidebar() {
   const { token } = theme.useToken();
   const settingsSection = useUIStore((s) => s.settingsSection);
   const setSettingsSection = useUIStore((s) => s.setSettingsSection);
+  const exitSettings = useUIStore((s) => s.exitSettings);
 
   const items = SECTION_KEYS.map((key) => ({
     key,
@@ -49,14 +50,54 @@ export function SettingsSidebar() {
   }));
 
   return (
-    <div className="h-full pt-1" data-os-scrollbar style={{ backgroundColor: token.colorBgContainer, overflowY: 'auto' }}>
-      <Menu
-        mode="inline"
-        selectedKeys={[settingsSection]}
-        items={items}
-        style={{ borderInlineEnd: 'none' }}
-        onClick={({ key }) => setSettingsSection(key as SettingsSection)}
-      />
+    <div className="h-full flex flex-col" data-os-scrollbar style={{ backgroundColor: token.colorBgContainer, overflowY: 'auto' }}>
+      {/* Back button */}
+      <div
+        className="flex items-center gap-2 cursor-pointer"
+        style={{
+          color: token.colorTextSecondary,
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+          flexShrink: 0,
+          paddingLeft: 26,
+          paddingRight: 16,
+          paddingTop: 12,
+          paddingBottom: 12,
+        }}
+        onClick={exitSettings}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.color = token.colorText;
+          e.currentTarget.style.backgroundColor = token.colorFillSecondary;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.color = token.colorTextSecondary;
+          e.currentTarget.style.backgroundColor = 'transparent';
+        }}
+      >
+        <ArrowLeft size={16} />
+        <span style={{ fontSize: 14 }}>{t('common.back', '返回')}</span>
+        <span
+          style={{
+            fontSize: 11,
+            color: token.colorTextQuaternary,
+            border: `1px solid ${token.colorBorderSecondary}`,
+            borderRadius: 4,
+            padding: '1px 6px',
+            marginLeft: 4,
+            lineHeight: '16px',
+          }}
+        >
+          Esc
+        </span>
+      </div>
+      <div className="flex-1 pt-1" style={{ overflowY: 'auto' }}>
+        <Menu
+          mode="inline"
+          selectedKeys={[settingsSection]}
+          items={items}
+          style={{ borderInlineEnd: 'none' }}
+          onClick={({ key }) => setSettingsSection(key as SettingsSection)}
+        />
+      </div>
     </div>
   );
 }

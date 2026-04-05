@@ -494,8 +494,26 @@ pub fn run() {
                             let db2 = db.clone();
                             let dir2 = app_data_dir.clone();
                             let interval = settings.webdav_sync_interval_minutes;
+                            let interval_secs = interval as u64 * 60;
+
+                            // Calculate initial delay: catch up if overdue
+                            let initial_delay_secs = match aqbot_core::repo::settings::get_setting(&db, "webdav_last_sync_time").await {
+                                Ok(Some(ts)) => {
+                                    if let Ok(last_time) = chrono::DateTime::parse_from_rfc3339(&ts) {
+                                        let elapsed = chrono::Utc::now()
+                                            .signed_duration_since(last_time)
+                                            .num_seconds()
+                                            .max(0) as u64;
+                                        if elapsed >= interval_secs { 0 } else { interval_secs - elapsed }
+                                    } else {
+                                        interval_secs
+                                    }
+                                }
+                                _ => interval_secs,
+                            };
+
                             let task = commands::webdav::spawn_webdav_sync_task(
-                                db2, master_key, dir2, interval,
+                                db2, master_key, dir2, interval, initial_delay_secs,
                             );
                             *handle.lock().await = Some(task);
                         }

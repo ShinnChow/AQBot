@@ -178,7 +178,13 @@ export function TitleBar() {
     if (Number.isNaN(d.getTime())) return;
     const interval = settings.webdav_sync_interval_minutes ?? 60;
     if (settings.webdav_sync_enabled && interval > 0) {
-      setNextWebDavTs(d.getTime() + interval * 60000);
+      const intervalMs = interval * 60000;
+      let next = d.getTime() + intervalMs;
+      // If overdue, advance to the next future interval
+      while (next < Date.now()) {
+        next += intervalMs;
+      }
+      setNextWebDavTs(next);
     } else {
       setNextWebDavTs(null);
     }
@@ -194,7 +200,12 @@ export function TitleBar() {
     if (lastLocalBackup) {
       const lastTime = new Date(lastLocalBackup).getTime();
       if (!Number.isNaN(lastTime)) {
-        setNextLocalTs(lastTime + intervalMs);
+        let next = lastTime + intervalMs;
+        // If overdue, advance to the next future interval
+        while (next < Date.now()) {
+          next += intervalMs;
+        }
+        setNextLocalTs(next);
         return;
       }
     }
@@ -210,7 +221,7 @@ export function TitleBar() {
       if (nextLocalTs) {
         if (!soonest || nextLocalTs < soonest) soonest = nextLocalTs;
       }
-      if (nextWebDavTs && nextWebDavTs - now > 0) {
+      if (nextWebDavTs) {
         if (!soonest || nextWebDavTs < soonest) soonest = nextWebDavTs;
       }
       if (soonest) {

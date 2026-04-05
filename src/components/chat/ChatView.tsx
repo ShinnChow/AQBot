@@ -384,8 +384,8 @@ async function loadChatD2Ctor() {
   return chatD2CtorPromise;
 }
 
-function ThinkingNode(props: NodeComponentProps<{
-  type: 'thinking';
+function ThinkNode(props: NodeComponentProps<{
+  type: 'think';
   content: string;
   attrs?: CustomNodeAttrs;
 }>) {
@@ -396,7 +396,8 @@ function ThinkingNode(props: NodeComponentProps<{
   const thinkingNodesCacheRef = useRef<Map<string, ChatMarkdownNode[]>>(new Map());
   const rawThinkingContent = String(node.content ?? '');
   const isStreaming = rawThinkingContent.includes(THINKING_LOADING_MARKER);
-  const messageId = getCustomAttr(node.attrs, 'data-message-id') ?? '';
+  const totalMsAttr = getCustomAttr(node.attrs, 'totalMs') ?? getCustomAttr(node.attrs, 'totalms');
+  const totalMs = totalMsAttr ? parseInt(totalMsAttr, 10) : null;
   const thinkingContent = rawThinkingContent
     .replace(`${THINKING_LOADING_MARKER}\n`, '')
     .replace(THINKING_LOADING_MARKER, '');
@@ -406,7 +407,7 @@ function ThinkingNode(props: NodeComponentProps<{
   useEffect(() => {
     setExpanded(isStreaming);
     prevStreamingRef.current = isStreaming;
-  }, [messageId, isStreaming]);
+  }, [isStreaming]);
 
   useEffect(() => {
     if (isStreaming) {
@@ -416,6 +417,12 @@ function ThinkingNode(props: NodeComponentProps<{
     }
     prevStreamingRef.current = isStreaming;
   }, [isStreaming]);
+
+  const title = isStreaming
+    ? t('chat.thinkingInProgress')
+    : totalMs && !isNaN(totalMs)
+      ? `${t('chat.thinkingComplete')} ${formatDuration(totalMs)}`
+      : t('chat.thinkingComplete');
 
   const thinkingNodes = useMemo(() => {
     const cache = thinkingNodesCacheRef.current;
@@ -446,7 +453,7 @@ function ThinkingNode(props: NodeComponentProps<{
 
   return (
     <Think
-      title={isStreaming ? t('chat.thinkingInProgress') : t('chat.thinkingComplete')}
+      title={title}
       blink={isStreaming}
       loading={isStreaming ? (
         <SyncOutlined style={{ fontSize: 12, animation: 'aqbot-think-spin 1s linear infinite' }} />
@@ -467,7 +474,7 @@ function ThinkingNode(props: NodeComponentProps<{
         codeBlockDarkTheme={darkTheme}
         codeBlockProps={codeBlockProps}
         codeBlockMonacoOptions={codeBlockMonacoOptions}
-        customHtmlTags={CHAT_CUSTOM_HTML_TAGS}
+        customHtmlTags={CHAT_CUSTOM_HTML_TAGS.filter((t) => t !== 'think')}
         {...CHAT_RENDER_BATCH_PROPS}
       />
     </Think>
@@ -743,7 +750,7 @@ function ChatD2Node(props: NodeComponentProps<ChatD2CodeBlockNode>) {
   return <ChatD2BlockNode node={node} isDark={ctx?.isDark} />;
 }
 
-setCustomComponents('chat', { thinking: ThinkingNode, 'web-search': WebSearchNode, 'knowledge-retrieval': KnowledgeRetrievalNode, 'memory-retrieval': MemoryRetrievalNode, d2: ChatD2Node, vmr_container: McpContainerNode });
+setCustomComponents('chat', { think: ThinkNode, 'web-search': WebSearchNode, 'knowledge-retrieval': KnowledgeRetrievalNode, 'memory-retrieval': MemoryRetrievalNode, d2: ChatD2Node, vmr_container: McpContainerNode });
 
 const AssistantMarkdown = React.memo(function AssistantMarkdown({
   content,
@@ -1825,11 +1832,13 @@ export function ChatView() {
         ? buildAssistantDisplayContent(msg, activeMessages)
         : msg.content;
       if (shouldHideAssistantBubble(msg, aiContent)) continue;
-      if (msg.role === 'assistant' && msg.thinking) {
-        const thinkingMarker = thinkingActiveMessageId === msg.id
-          ? `${THINKING_LOADING_MARKER}\n`
-          : '';
-        aiContent = `<thinking data-message-id="${msg.id}">${thinkingMarker}${msg.thinking}</thinking>\n\n${aiContent}`;
+      // Close unclosed think block during streaming
+      if (msg.role === 'assistant' && thinkingActiveMessageId === msg.id && aiContent.includes('<think')) {
+        const lastOpen = aiContent.lastIndexOf('<think');
+        const lastClose = aiContent.lastIndexOf('</think>');
+        if (lastClose < lastOpen) {
+          aiContent += THINKING_LOADING_MARKER + '\n</think>\n\n';
+        }
       }
       if (msg.role === 'assistant' && !aiContent.includes('data-aqbot="1"')) {
         const parentSearch = msg.parent_message_id

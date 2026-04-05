@@ -31,7 +31,6 @@ interface StreamBuffer {
   messageId: string;
   conversationId: string;
   content: string;
-  thinking: string;
   /** The real message ID resolved from the backend (may differ from initial placeholder) */
   resolvedId: string | null;
 }
@@ -47,7 +46,6 @@ interface PendingUiChunk {
   messageId: string;
   conversationId: string;
   content: string;
-  thinking: string;
 }
 let _pendingUiChunk: PendingUiChunk | null = null;
 let _streamUiFlushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -348,18 +346,16 @@ function appendStreamChunk(
   get: () => ConversationState,
   messageId: string,
   content: string | null,
-  thinking: string | null,
   conversationId: string,
 ) {
   // Accumulate into stream buffer only in single-stream mode
   // (parallel multi-model streams would corrupt the shared buffer)
   if (!_isMultiModelActive) {
     if (!_streamBuffer || _streamBuffer.conversationId !== conversationId) {
-      _streamBuffer = { messageId, conversationId, content: _streamPrefix, thinking: '', resolvedId: null };
+      _streamBuffer = { messageId, conversationId, content: _streamPrefix, resolvedId: null };
       _streamPrefix = ''; // consumed
     }
     _streamBuffer.content += content ?? '';
-    _streamBuffer.thinking += thinking ?? '';
     // Track ID resolution (placeholder → real ID)
     if (_streamBuffer.messageId !== messageId && !_streamBuffer.resolvedId) {
       _streamBuffer.resolvedId = messageId;
@@ -381,12 +377,10 @@ function appendStreamChunk(
       messageId,
       conversationId,
       content: '',
-      thinking: '',
     };
   }
 
   _pendingUiChunk.content += content ?? '';
-  _pendingUiChunk.thinking += thinking ?? '';
 
   if (_streamUiFlushTimer === null) {
     _streamUiFlushTimer = setTimeout(() => {
@@ -408,7 +402,7 @@ function flushPendingStreamChunk(
   _pendingUiChunk = null;
   if (!pending) return;
 
-  const { messageId, content, thinking, conversationId } = pending;
+  const { messageId, content, conversationId } = pending;
   if (get().activeConversationId !== conversationId) return;
 
   set((s) => {
@@ -421,7 +415,6 @@ function flushPendingStreamChunk(
             ? {
                 ...m,
                 content: m.content + (content ?? ''),
-                thinking: (m.thinking ?? '') + (thinking ?? '') || null,
               }
             : m,
         ),
@@ -444,7 +437,6 @@ function flushPendingStreamChunk(
                     ...m,
                     id: messageId,
                     content: m.content + (content ?? ''),
-                    thinking: (m.thinking ?? '') + (thinking ?? '') || null,
                   }
                 : m,
             ),
@@ -465,7 +457,7 @@ function flushPendingStreamChunk(
       model_id: null,
       token_count: null,
       attachments: [],
-      thinking: (_streamBuffer?.thinking || thinking) || null,
+      thinking: null,
       tool_calls_json: null,
       tool_call_id: null,
       created_at: Date.now(),
@@ -1834,7 +1826,15 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
 
       if (chunk.done) {
         if (chunk.is_final === false) {
+          // Append any remaining content in the done chunk (e.g. closing </think> tag)
+          if (chunk.content) {
+            appendStreamChunk(set, get, message_id, chunk.content, conversation_id);
+          }
           flushPendingStreamChunk(set, get);
+          // Clear thinking state — this iteration is done
+          if (get().thinkingActiveMessageId === message_id) {
+            set({ thinkingActiveMessageId: null });
+          }
           return;
         }
 
@@ -1928,14 +1928,14 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         return;
       }
 
-      if (chunk.thinking && get().thinkingActiveMessageId !== message_id) {
+      if (chunk.thinking !== undefined && chunk.thinking !== null && get().thinkingActiveMessageId !== message_id) {
         set({ thinkingActiveMessageId: message_id });
       }
-      if (chunk.content && get().thinkingActiveMessageId === message_id) {
+      if (chunk.content && get().thinkingActiveMessageId === message_id && (chunk.thinking === undefined || chunk.thinking === null)) {
         set({ thinkingActiveMessageId: null });
       }
 
-      appendStreamChunk(set, get, message_id, chunk.content, chunk.thinking, conversation_id);
+      appendStreamChunk(set, get, message_id, chunk.content, conversation_id);
     });
 
     const errorUnsub = await listen<ChatStreamErrorEvent>('chat-stream-error', (event) => {

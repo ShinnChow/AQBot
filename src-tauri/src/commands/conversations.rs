@@ -62,10 +62,36 @@ async fn persist_attachments(
     Ok(persisted)
 }
 
+/// Strip `<think ...>...</think>` blocks from content (all variants).
+fn strip_think_tags(content: &str) -> String {
+    let mut s = content.to_string();
+    loop {
+        if let Some(start) = s.find("<think") {
+            // Ensure it's a tag (next char is '>' or ' ')
+            let after_tag = &s[start + 6..];
+            let is_tag = after_tag.starts_with('>') || after_tag.starts_with(' ');
+            if !is_tag {
+                break;
+            }
+            if let Some(end_offset) = s[start..].find("</think>") {
+                let end = start + end_offset + "</think>".len();
+                let before = s[..start].trim_end_matches('\n');
+                let after = s[end..].trim_start_matches('\n');
+                s = format!("{}{}", before, after);
+                continue;
+            }
+        }
+        break;
+    }
+    s
+}
+
 /// Strip display-only tags from assistant message content so they aren't sent to the AI.
 /// Strips: `<knowledge-retrieval data-aqbot="1">` and `<memory-retrieval data-aqbot="1">` tags,
-/// and `:::mcp ... :::` fenced blocks.
+/// `:::mcp ... :::` fenced blocks, and `<think>...</think>` blocks.
 fn strip_display_tags(content: &str) -> String {
+    // Strip <think> blocks first
+    let content = strip_think_tags(content);
     // Strip knowledge-retrieval and memory-retrieval tags with data-aqbot attribute
     let content = {
         let mut s = content.to_string();
@@ -343,23 +369,26 @@ async fn consume_stream(
     message_id: &str,
     cancel_flag: &AtomicBool,
 ) -> (
-    String,
-    String,
+    String,              // full_content (includes <think> blocks)
     Option<TokenUsage>,
     Option<Vec<ToolCall>>,
-    Option<String>,
-    Option<f64>,  // tokens_per_second
-    Option<i64>,  // first_token_latency_ms
+    Option<String>,      // stream_error
+    Option<f64>,         // tokens_per_second
+    Option<i64>,         // first_token_latency_ms
 ) {
     use futures::StreamExt;
     let mut full_content = String::new();
-    let mut full_thinking = String::new();
     let mut final_usage: Option<TokenUsage> = None;
     let mut final_tool_calls: Option<Vec<ToolCall>> = None;
     let mut stream_error: Option<String> = None;
 
     let stream_start = std::time::Instant::now();
     let mut first_token_time: Option<std::time::Instant> = None;
+
+    // Track <think> block state for merging thinking into content
+    let mut in_thinking_block = false;
+    let mut thinking_block_start: Option<std::time::Instant> = None;
+    let mut thinking_durations: Vec<u64> = Vec::new();
 
     while let Some(result) = stream.next().await {
         // Check for cancellation
@@ -369,42 +398,76 @@ async fn consume_stream(
         }
         match result {
             Ok(chunk) => {
-                let mut emitted_chunk = chunk.clone();
-                if emitted_chunk.done && emitted_chunk.is_final.is_none() {
-                    emitted_chunk.is_final = Some(
-                        emitted_chunk
-                            .tool_calls
-                            .as_ref()
-                            .is_none_or(|tool_calls| tool_calls.is_empty()),
-                    );
-                }
-                if let Some(ref c) = chunk.content {
-                    if first_token_time.is_none() && !c.is_empty() {
-                        first_token_time = Some(std::time::Instant::now());
-                    }
-                    full_content.push_str(c);
-                }
+                let is_done = chunk.done;
+
+                // Build the emitted chunk with thinking merged into content
+                let mut emit_content = String::new();
+                let mut emit_thinking_signal: Option<String> = None;
+
+                // Handle thinking chunks → merge into content with <think> tags
+                // Uses <think data-aq> to distinguish our injected blocks from
+                // upstream <think> tags (e.g. DeepSeek returns <think> in content)
                 if let Some(ref t) = chunk.thinking {
-                    if first_token_time.is_none() && !t.is_empty() {
-                        first_token_time = Some(std::time::Instant::now());
+                    if !t.is_empty() {
+                        if first_token_time.is_none() {
+                            first_token_time = Some(std::time::Instant::now());
+                        }
+                        if !in_thinking_block {
+                            // Ensure blank line before <think> so markdown parser treats it as a separate block
+                            if !full_content.is_empty() {
+                                emit_content.push_str("\n\n");
+                            }
+                            emit_content.push_str("<think data-aqbot=\"1\">\n");
+                            in_thinking_block = true;
+                            thinking_block_start = Some(std::time::Instant::now());
+                        }
+                        emit_content.push_str(t);
+                        emit_thinking_signal = Some(String::new()); // signal: thinking active
                     }
-                    full_thinking.push_str(t);
                 }
+
+                // Handle content chunks → close any open <think> block first
+                if let Some(ref c) = chunk.content {
+                    if !c.is_empty() {
+                        if first_token_time.is_none() {
+                            first_token_time = Some(std::time::Instant::now());
+                        }
+                        if in_thinking_block {
+                            let total_ms = thinking_block_start
+                                .map(|s| s.elapsed().as_millis() as u64)
+                                .unwrap_or(0);
+                            thinking_durations.push(total_ms);
+                            emit_content.push_str("\n</think>\n\n");
+                            in_thinking_block = false;
+                            thinking_block_start = None;
+                        }
+                        emit_content.push_str(c);
+                    }
+                }
+
+                // On done: close any still-open <think> block
+                if is_done && in_thinking_block {
+                    let total_ms = thinking_block_start
+                        .map(|s| s.elapsed().as_millis() as u64)
+                        .unwrap_or(0);
+                    thinking_durations.push(total_ms);
+                    emit_content.push_str("\n</think>\n\n");
+                    in_thinking_block = false;
+                    thinking_block_start = None;
+                }
+
+                full_content.push_str(&emit_content);
+
                 if chunk.usage.is_some() {
                     final_usage.clone_from(&chunk.usage);
                 }
                 if chunk.tool_calls.is_some() {
                     final_tool_calls.clone_from(&chunk.tool_calls);
                 }
-                let is_done = chunk.done;
 
-                // Detect empty response: stream ended (done=true) but no useful
-                // content was produced.  Emit a stream error instead of the done
-                // chunk so the frontend error handler fires (streaming is still
-                // true at this point) and the user sees an error, not a blank bubble.
+                // Detect empty response
                 if is_done
                     && full_content.is_empty()
-                    && full_thinking.is_empty()
                     && final_tool_calls.as_ref().is_none_or(|tc| tc.is_empty())
                 {
                     let err_msg = "Provider returned empty response".to_string();
@@ -419,6 +482,23 @@ async fn consume_stream(
                     tracing::warn!("[consume_stream] Empty response from provider");
                     stream_error = Some(err_msg);
                     break;
+                }
+
+                let mut emitted_chunk = ChatStreamChunk {
+                    content: if emit_content.is_empty() { None } else { Some(emit_content) },
+                    thinking: emit_thinking_signal,
+                    done: is_done,
+                    is_final: None,
+                    usage: chunk.usage.clone(),
+                    tool_calls: chunk.tool_calls.clone(),
+                };
+                if emitted_chunk.done && emitted_chunk.is_final.is_none() {
+                    emitted_chunk.is_final = Some(
+                        emitted_chunk
+                            .tool_calls
+                            .as_ref()
+                            .is_none_or(|tool_calls| tool_calls.is_empty()),
+                    );
                 }
 
                 let _ = app.emit(
@@ -451,6 +531,18 @@ async fn consume_stream(
         }
     }
 
+    // Close any dangling <think> block (e.g. stream cancelled mid-thinking)
+    if in_thinking_block {
+        let total_ms = thinking_block_start
+            .map(|s| s.elapsed().as_millis() as u64)
+            .unwrap_or(0);
+        thinking_durations.push(total_ms);
+        full_content.push_str("\n</think>\n\n");
+    }
+
+    // Post-process: replace each <think data-aq> with <think totalMs="N">
+    full_content = fixup_think_tags(&full_content, &thinking_durations);
+
     // Compute timing metrics
     let first_token_latency_ms = first_token_time
         .map(|t| (t - stream_start).as_millis() as i64);
@@ -468,13 +560,33 @@ async fn consume_stream(
 
     (
         full_content,
-        full_thinking,
         final_usage,
         final_tool_calls,
         stream_error,
         tokens_per_second,
         first_token_latency_ms,
     )
+}
+
+/// Replace each `<think data-aqbot="1">` marker with `<think totalMs="N">` using
+/// the collected duration values. Upstream `<think>` tags (without `data-aqbot`)
+/// are left unchanged.
+fn fixup_think_tags(content: &str, durations: &[u64]) -> String {
+    const MARKER: &str = "<think data-aqbot=\"1\">";
+    let mut result = String::with_capacity(content.len());
+    let mut remaining = content;
+    let mut dur_iter = durations.iter();
+    while let Some(pos) = remaining.find(MARKER) {
+        result.push_str(&remaining[..pos]);
+        if let Some(ms) = dur_iter.next() {
+            result.push_str(&format!("<think totalMs=\"{}\">", ms));
+        } else {
+            result.push_str("<think>");
+        }
+        remaining = &remaining[pos + MARKER.len()..];
+    }
+    result.push_str(remaining);
+    result
 }
 
 async fn execute_tool_call(
@@ -1065,7 +1177,6 @@ fn spawn_stream_task(
         let mut chat_messages = chat_messages;
         let mut iteration = 0;
         let mut total_content = String::new();
-        let mut total_thinking = String::new();
         let mut total_usage: Option<TokenUsage> = None;
         let mut final_tool_calls_json: Option<String> = None;
         let mut had_stream_error = false;
@@ -1139,7 +1250,7 @@ fn spawn_stream_task(
             };
 
             let mut stream = adapter.chat_stream(&ctx, request);
-            let (content, thinking, usage, tool_calls, stream_error, iter_tps, iter_ttft) = consume_stream(
+            let (content, usage, tool_calls, stream_error, iter_tps, iter_ttft) = consume_stream(
                 &app,
                 &mut stream,
                 &conversation_id,
@@ -1149,7 +1260,6 @@ fn spawn_stream_task(
             .await;
 
             total_content.push_str(&content);
-            total_thinking.push_str(&thinking);
             if usage.is_some() {
                 total_usage = usage;
             }
@@ -1182,19 +1292,16 @@ fn spawn_stream_task(
                 }
             };
 
-            // Determine where MCP blocks belong: if this iteration produced
-            // thinking but no content, the tool calls are part of the reasoning
-            // phase and should be folded into the thinking section.
-            let mcp_in_thinking = content.is_empty() && !thinking.is_empty();
-
             // Save the tool_calls JSON for the final message
             let tc_json = serde_json::to_string(&tool_calls).ok();
             final_tool_calls_json = tc_json.clone();
 
             // Add assistant message with tool_calls to chat history for next round
+            // Strip <think> tags from the assistant content sent to the provider
+            let stripped_content = strip_think_tags(&content);
             chat_messages.push(ChatMessage {
                 role: "assistant".to_string(),
-                content: ChatContent::Text(content.to_string()),
+                content: ChatContent::Text(stripped_content),
                 tool_calls: Some(tool_calls.clone()),
                 tool_call_id: None,
             });
@@ -1236,27 +1343,15 @@ fn spawn_stream_task(
                     "arguments": tc.function.arguments,
                 });
                 let mcp_opener = format!("\n\n:::mcp {}\n", metadata);
-                if mcp_in_thinking {
-                    total_thinking.push_str(&mcp_opener);
-                } else {
-                    total_content.push_str(&mcp_opener);
-                }
+                total_content.push_str(&mcp_opener);
                 let _ = app.emit(
                     "chat-stream-chunk",
                     ChatStreamEvent {
                         conversation_id: conversation_id.clone(),
                         message_id: assistant_message_id.clone(),
                         chunk: ChatStreamChunk {
-                            content: if mcp_in_thinking {
-                                None
-                            } else {
-                                Some(mcp_opener.clone())
-                            },
-                            thinking: if mcp_in_thinking {
-                                Some(mcp_opener.clone())
-                            } else {
-                                None
-                            },
+                            content: Some(mcp_opener.clone()),
+                            thinking: None,
                             done: false,
                             is_final: None,
                             usage: None,
@@ -1309,27 +1404,15 @@ fn spawn_stream_task(
 
                 // Emit :::mcp result + closer as stream chunk — frontend shows completed state
                 let mcp_closer = format!("{}\n:::\n\n", result_content);
-                if mcp_in_thinking {
-                    total_thinking.push_str(&mcp_closer);
-                } else {
-                    total_content.push_str(&mcp_closer);
-                }
+                total_content.push_str(&mcp_closer);
                 let _ = app.emit(
                     "chat-stream-chunk",
                     ChatStreamEvent {
                         conversation_id: conversation_id.clone(),
                         message_id: assistant_message_id.clone(),
                         chunk: ChatStreamChunk {
-                            content: if mcp_in_thinking {
-                                None
-                            } else {
-                                Some(mcp_closer.clone())
-                            },
-                            thinking: if mcp_in_thinking {
-                                Some(mcp_closer.clone())
-                            } else {
-                                None
-                            },
+                            content: Some(mcp_closer.clone()),
+                            thinking: None,
                             done: false,
                             is_final: None,
                             usage: None,
@@ -1397,11 +1480,7 @@ fn spawn_stream_task(
                 token_count: Set(token_count.map(|v| v as i64)),
                 prompt_tokens: Set(prompt_tokens.map(|v| v as i64)),
                 completion_tokens: Set(completion_tokens.map(|v| v as i64)),
-                thinking: Set(if total_thinking.is_empty() {
-                    None
-                } else {
-                    Some(total_thinking.clone())
-                }),
+                thinking: Set(None), // thinking is now embedded in content as <think> tags
                 tool_calls_json: Set(final_tool_calls_json),
                 status: Set(final_status.to_string()),
                 tokens_per_second: Set(final_tokens_per_second),

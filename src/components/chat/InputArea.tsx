@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Button, Tooltip, App, theme, Dropdown, Tag, Popover, Checkbox, Badge } from 'antd';
 import type { MenuProps } from 'antd';
-import { Paperclip, Trash2, Mic, Eraser, Scissors, Globe, Brain, BrainCog, Plug, SlidersHorizontal, ArrowUp, Square, Check, Zap, ZapOff, Gauge, Shrink, Upload, LayoutGrid, X, BookOpen, GripHorizontal } from 'lucide-react';
+import { Paperclip, Trash2, Mic, Eraser, Scissors, Globe, Brain, BrainCog, Plug, SlidersHorizontal, ArrowUp, Square, Check, Zap, ZapOff, Gauge, Shrink, Upload, GitCompareArrows, X, BookOpen, GripHorizontal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useConversationStore, useProviderStore, useSettingsStore, useSearchStore, useMcpStore, useMemoryStore, useKnowledgeStore } from '@/stores';
 import { useUIStore } from '@/stores/uiStore';
@@ -897,7 +897,7 @@ export function InputArea() {
               className="inline-flex items-center px-2 py-0.5 text-xs"
               style={{ color: token.colorTextTertiary }}
             >
-              {t('chat.multiModel')}:
+              {t('chat.multiModel.selectTitle')}:
             </span>
             {companionDisplayInfos.map((cm, idx) => (
               <span
@@ -1099,11 +1099,11 @@ export function InputArea() {
                 </Badge>
               </Tooltip>
             </Popover>
-            <Tooltip title={t('chat.multiModel')}>
+            <Tooltip title={t('chat.multiModel.selectTitle')}>
               <Button
                 type="text"
                 size="small"
-                icon={<LayoutGrid size={14} />}
+                icon={<GitCompareArrows size={14} />}
                 onClick={() => setMultiModelOpen(true)}
                 style={companionModels.length > 0 ? { color: token.colorPrimary } : undefined}
               />

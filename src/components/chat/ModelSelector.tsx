@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { Tag, Modal, Input, theme, Tooltip, Button, Checkbox } from 'antd';
-import { Search, Settings, Pin, PinOff, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Eye, Wrench, Lightbulb, Mic, MessageSquare, Check, LayoutGrid } from 'lucide-react';
+import { Search, Settings, Pin, PinOff, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Eye, Wrench, Lightbulb, Mic, MessageSquare, Check, GitCompareArrows } from 'lucide-react';
 import { ModelIcon } from '@lobehub/icons';
 import { useTranslation } from 'react-i18next';
 import { useProviderStore, useConversationStore, useSettingsStore, useUIStore } from '@/stores';
@@ -431,7 +431,7 @@ export function ModelSelector({ style, onSelect, overrideCurrentModel, children,
         ) : null}
         title={multiSelect ? (
           <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, paddingLeft: 4 }}>
-            <LayoutGrid size={16} />
+            <GitCompareArrows size={16} />
             {t('chat.multiModel.selectTitle')}
           </span>
         ) : null}

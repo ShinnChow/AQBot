@@ -230,7 +230,7 @@
     "createKey": "Create Key",
     "copyKey": "Copy Key",
     "keyCreated": "Key created, copy it now",
-    "copyWarning": "This key will only be shown once. Please copy and save it securely.",
+    "copyWarning": "Please copy and save the key. You can also copy it later from the key list.",
     "keyName": "Key Name",
     "deleteKeyConfirm": "Delete this key?",
     "totalRequests": "Total Requests",

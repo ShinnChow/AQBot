@@ -230,7 +230,7 @@
     "createKey": "キーを作成",
     "copyKey": "キーをコピー",
     "keyCreated": "キーが作成されました。今すぐコピーしてください",
-    "copyWarning": "このキーは一度しか表示されません。コピーして安全に保管してください。",
+    "copyWarning": "キーをコピーして安全に保管してください。後からキー一覧でもコピーできます。",
     "keyName": "キー名",
     "deleteKeyConfirm": "このキーを削除しますか？",
     "totalRequests": "総リクエスト数",

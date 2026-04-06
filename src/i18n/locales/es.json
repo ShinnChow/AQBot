@@ -230,7 +230,7 @@
     "createKey": "Crear clave",
     "copyKey": "Copiar clave",
     "keyCreated": "Clave creada, cópiela ahora",
-    "copyWarning": "Esta clave solo se mostrará una vez. Cópiela y guárdela en un lugar seguro.",
+    "copyWarning": "Copie y guarde la clave de forma segura. También puede copiarla más tarde desde la lista de claves.",
     "keyName": "Nombre de la clave",
     "deleteKeyConfirm": "¿Eliminar esta clave?",
     "totalRequests": "Total de solicitudes",

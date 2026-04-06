@@ -120,6 +120,7 @@ pub fn run() {
             commands::gateway::create_gateway_key,
             commands::gateway::delete_gateway_key,
             commands::gateway::toggle_gateway_key,
+            commands::gateway::decrypt_gateway_key,
             commands::gateway::get_gateway_metrics,
             commands::gateway::start_gateway,
             commands::gateway::stop_gateway,

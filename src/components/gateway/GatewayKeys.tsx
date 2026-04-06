@@ -12,6 +12,7 @@ import {
   Alert,
 } from 'antd';
 import { Plus, Trash2, Copy, Search } from 'lucide-react';
+import { writeText as clipboardWriteText } from '@tauri-apps/plugin-clipboard-manager';
 import { useGatewayStore } from '@/stores/gatewayStore';
 import type { GatewayKey } from '@/types';
 
@@ -19,7 +20,7 @@ const { Text } = Typography;
 
 export function GatewayKeys() {
   const { t } = useTranslation();
-  const { keys, loading, fetchKeys, createKey, deleteKey, toggleKey } =
+  const { keys, loading, fetchKeys, createKey, deleteKey, toggleKey, decryptKey } =
     useGatewayStore();
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -56,9 +57,9 @@ export function GatewayKeys() {
     }
   };
 
-  const handleCopyKey = () => {
+  const handleCopyKey = async () => {
     if (createdKey) {
-      navigator.clipboard.writeText(createdKey);
+      await clipboardWriteText(createdKey);
       message.success(t('common.copySuccess'));
     }
   };
@@ -109,14 +110,32 @@ export function GatewayKeys() {
     {
       title: '',
       key: 'actions',
-      width: 60,
+      width: 100,
       render: (_: unknown, record: GatewayKey) => (
-        <Popconfirm
-          title={t('gateway.deleteKeyConfirm')}
-          onConfirm={() => deleteKey(record.id)}
-        >
-          <Button type="text" danger icon={<Trash2 size={14} />} size="small" />
-        </Popconfirm>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {record.has_encrypted_key && (
+            <Button
+              type="text"
+              icon={<Copy size={14} />}
+              size="small"
+              onClick={async () => {
+                try {
+                  const plainKey = await decryptKey(record.id);
+                  await clipboardWriteText(plainKey);
+                  message.success(t('common.copySuccess'));
+                } catch (e) {
+                  message.error(String(e));
+                }
+              }}
+            />
+          )}
+          <Popconfirm
+            title={t('gateway.deleteKeyConfirm')}
+            onConfirm={() => deleteKey(record.id)}
+          >
+            <Button type="text" danger icon={<Trash2 size={14} />} size="small" />
+          </Popconfirm>
+        </div>
       ),
     },
   ];

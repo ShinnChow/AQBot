@@ -445,6 +445,16 @@ pub async fn toggle_gateway_key(
 }
 
 #[tauri::command]
+pub async fn decrypt_gateway_key(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<String, String> {
+    aqbot_core::repo::gateway_key::get_plain_key(&state.sea_db, &state.master_key, &id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn get_gateway_metrics(state: State<'_, AppState>) -> Result<GatewayMetrics, String> {
     aqbot_core::repo::gateway::get_gateway_metrics(&state.sea_db)
         .await

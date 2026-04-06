@@ -230,7 +230,7 @@
     "createKey": "Schlüssel erstellen",
     "copyKey": "Schlüssel kopieren",
     "keyCreated": "Schlüssel erstellt, jetzt kopieren",
-    "copyWarning": "Dieser Schlüssel wird nur einmal angezeigt. Bitte kopieren und sicher aufbewahren.",
+    "copyWarning": "Bitte kopieren und speichern Sie den Schlüssel. Sie können ihn auch später in der Schlüsselliste kopieren.",
     "keyName": "Schlüsselname",
     "deleteKeyConfirm": "Diesen Schlüssel löschen?",
     "totalRequests": "Anfragen gesamt",

@@ -230,7 +230,7 @@
     "createKey": "创建密钥",
     "copyKey": "复制密钥",
     "keyCreated": "密钥已创建，请立即复制保存",
-    "copyWarning": "此密钥仅显示一次，请妥善复制保存。",
+    "copyWarning": "请妥善复制保存密钥，也可稍后在密钥列表中复制。",
     "keyName": "密钥名称",
     "deleteKeyConfirm": "确定删除此密钥？",
     "totalRequests": "总请求数",

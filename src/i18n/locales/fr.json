@@ -230,7 +230,7 @@
     "createKey": "Créer une clé",
     "copyKey": "Copier la clé",
     "keyCreated": "Clé créée, copiez-la maintenant",
-    "copyWarning": "Cette clé ne sera affichée qu'une seule fois. Veuillez la copier et la conserver en lieu sûr.",
+    "copyWarning": "Veuillez copier et sauvegarder la clé. Vous pourrez également la copier ultérieurement depuis la liste des clés.",
     "keyName": "Nom de la clé",
     "deleteKeyConfirm": "Supprimer cette clé ?",
     "totalRequests": "Requêtes totales",

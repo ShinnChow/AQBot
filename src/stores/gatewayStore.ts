@@ -50,6 +50,7 @@ interface GatewayState {
   createKey: (name: string) => Promise<CreateGatewayKeyResult>;
   deleteKey: (id: string) => Promise<void>;
   toggleKey: (id: string, enabled: boolean) => Promise<void>;
+  decryptKey: (id: string) => Promise<string>;
   startGateway: () => Promise<void>;
   stopGateway: () => Promise<void>;
   fetchStatus: () => Promise<void>;
@@ -130,6 +131,16 @@ export const useGatewayStore = create<GatewayState>((set) => ({
         keys: s.keys.map((k) => (k.id === id ? { ...k, enabled } : k)),
         error: null,
       }));
+    } catch (e) {
+      set({ error: String(e) });
+      throw e;
+    }
+  },
+
+  decryptKey: async (id) => {
+    try {
+      const plainKey = await invoke<string>('decrypt_gateway_key', { id });
+      return plainKey;
     } catch (e) {
       set({ error: String(e) });
       throw e;

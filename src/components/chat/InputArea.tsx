@@ -83,15 +83,22 @@ export function InputArea() {
   const sendAgentMessage = useConversationStore((s) => s.sendAgentMessage);
   const createConversation = useConversationStore((s) => s.createConversation);
   const messages = useConversationStore((s) => s.messages);
+  const totalActiveCount = useConversationStore((s) => s.totalActiveCount);
+  const hasOlderMessages = useConversationStore((s) => s.hasOlderMessages);
   const contextCount = useMemo(() => {
     const activeMessages = messages.filter((m) => m.is_active !== false && !m.content.startsWith('%%ERROR%%'));
     const lastMarkerIdx = activeMessages.reduce((maxIdx, m, i) => {
       if (m.content === '<!-- context-clear -->' || m.content === '<!-- context-compressed -->') return i;
       return maxIdx;
     }, -1);
-    if (lastMarkerIdx === -1) return activeMessages.length;
-    return activeMessages.slice(lastMarkerIdx + 1).length;
-  }, [messages]);
+    if (lastMarkerIdx !== -1) {
+      return activeMessages.slice(lastMarkerIdx + 1).length;
+    }
+    if (hasOlderMessages && totalActiveCount > 0) {
+      return totalActiveCount;
+    }
+    return activeMessages.length;
+  }, [messages, hasOlderMessages, totalActiveCount]);
 
   const conversations = useConversationStore((s) => s.conversations);
   const providers = useProviderStore((s) => s.providers);
@@ -612,6 +619,9 @@ export function InputArea() {
     });
   }, [activeConversationId, activeConversation?.context_compression, getCompressionSummary, messages]);
 
+  // TODO: Token estimation only considers loaded messages. When hasOlderMessages is true
+  // and no context-clear marker is found, the token estimate will be lower than actual.
+  // A proper fix would require the backend to return total token counts.
   const contextTokenUsage = useMemo(() => {
     const maxTokens = currentModel?.max_tokens;
     if (!maxTokens) return null;

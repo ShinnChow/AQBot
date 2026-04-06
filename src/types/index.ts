@@ -160,6 +160,7 @@ export interface MessagePage {
   messages: Message[];
   has_older: boolean;
   oldest_message_id: string | null;
+  total_active_count: number;
 }
 
 export interface Attachment {

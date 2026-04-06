@@ -78,6 +78,12 @@ pub async fn list_messages_page(
     limit: u64,
     before_message_id: Option<&str>,
 ) -> Result<MessagePage> {
+    let total_active_count = messages::Entity::find()
+        .filter(messages::Column::ConversationId.eq(conversation_id))
+        .filter(messages::Column::IsActive.eq(1))
+        .count(db)
+        .await?;
+
     let mut query = messages::Entity::find()
         .filter(messages::Column::ConversationId.eq(conversation_id))
         .filter(messages::Column::IsActive.eq(1));
@@ -122,6 +128,7 @@ pub async fn list_messages_page(
         messages,
         has_older,
         oldest_message_id,
+        total_active_count,
     })
 }
 

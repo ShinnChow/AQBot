@@ -262,6 +262,7 @@ pub struct MessagePage {
     pub messages: Vec<Message>,
     pub has_older: bool,
     pub oldest_message_id: Option<String>,
+    pub total_active_count: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

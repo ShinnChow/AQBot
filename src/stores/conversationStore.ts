@@ -259,6 +259,7 @@ interface ConversationState {
   loading: boolean;
   loadingOlder: boolean;
   hasOlderMessages: boolean;
+  totalActiveCount: number;
   oldestLoadedMessageId: string | null;
   streaming: boolean;
   compressing: boolean;
@@ -503,6 +504,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
   loading: false,
   loadingOlder: false,
   hasOlderMessages: false,
+  totalActiveCount: 0,
   oldestLoadedMessageId: null,
   streaming: false,
   compressing: false,
@@ -712,7 +714,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     if (!conversationId) return;
     try {
       await invoke('clear_conversation_messages', { conversationId });
-      set({ messages: [], hasOlderMessages: false, oldestLoadedMessageId: null, loadingOlder: false });
+      set({ messages: [], hasOlderMessages: false, totalActiveCount: 0, oldestLoadedMessageId: null, loadingOlder: false });
     } catch (e) {
       console.error('Failed to clear messages:', e);
     }
@@ -733,6 +735,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       set({
         messages: page.messages,
         hasOlderMessages: page.has_older,
+        totalActiveCount: page.total_active_count,
         oldestLoadedMessageId: page.messages.length > 0 ? page.messages[0].id : null,
         compressing: false,
       });
@@ -766,6 +769,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       set({
         messages: page.messages,
         hasOlderMessages: page.has_older,
+        totalActiveCount: page.total_active_count,
         oldestLoadedMessageId: page.messages.length > 0 ? page.messages[0].id : null,
       });
     } catch (e) {
@@ -793,6 +797,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         loading: false,
         loadingOlder: false,
         hasOlderMessages: false,
+        totalActiveCount: 0,
         oldestLoadedMessageId: null,
       });
       return;
@@ -814,6 +819,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       loading: true,
       loadingOlder: false,
       hasOlderMessages: false,
+      totalActiveCount: 0,
       oldestLoadedMessageId: null,
       error: null,
       ...conversationPreferenceStateFromConversation(conversation),
@@ -2013,6 +2019,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
           loading: false,
           loadingOlder: false,
           hasOlderMessages: page.has_older,
+          totalActiveCount: page.total_active_count,
           oldestLoadedMessageId: messages[0]?.id ?? page.oldest_message_id,
           error: null,
         };
@@ -2047,6 +2054,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
         messages: mergeOlderPages(page.messages, s.messages),
         loadingOlder: false,
         hasOlderMessages: page.has_older,
+        totalActiveCount: page.total_active_count,
         oldestLoadedMessageId: page.oldest_message_id ?? s.oldestLoadedMessageId,
         error: null,
       }));

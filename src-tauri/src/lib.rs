@@ -3,7 +3,7 @@ use chrono;
 use sea_orm::DatabaseConnection;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tokio::sync::Mutex;
 
 #[cfg(unix)]
@@ -234,6 +234,7 @@ pub fn run() {
             commands::desktop::get_window_state,
             commands::desktop::set_always_on_top,
             commands::desktop::set_close_to_tray,
+            commands::desktop::force_quit,
             commands::desktop::apply_startup_settings,
             commands::desktop::test_proxy,
             commands::desktop::open_devtools,
@@ -398,7 +399,7 @@ pub fn run() {
                 sea_db: db_handle.conn,
                 master_key,
                 gateway: Arc::new(Mutex::new(None)),
-                close_to_tray: Arc::new(AtomicBool::new(true)),
+                close_to_tray: Arc::new(AtomicBool::new(false)),
                 app_data_dir: app_dir.clone(),
                 db_path: db_path,
                 auto_backup_handle: Arc::new(Mutex::new(None)),
@@ -583,6 +584,10 @@ pub fn run() {
                     if state.close_to_tray.load(Ordering::Relaxed) {
                         let _ = window.hide();
                         api.prevent_close();
+                    } else {
+                        // Ask frontend for confirmation before quitting
+                        api.prevent_close();
+                        let _ = app.emit("app-close-requested", ());
                     }
                 }
             }

@@ -1,6 +1,6 @@
 use crate::AppState;
 use std::sync::atomic::Ordering;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[tauri::command]
 pub async fn minimize_window(window: tauri::Window) -> Result<(), String> {
@@ -40,6 +40,12 @@ pub async fn apply_startup_settings(
         .map_err(|e| e.to_string())?;
     let state = app.state::<AppState>();
     state.close_to_tray.store(close_to_tray, Ordering::Relaxed);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn force_quit(app: tauri::AppHandle) -> Result<(), String> {
+    app.exit(0);
     Ok(())
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { ConfigProvider, App as AntdApp, Layout, theme } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { useTranslation } from 'react-i18next';
@@ -15,7 +15,7 @@ import { useResolvedDarkMode } from '@/hooks/useResolvedDarkMode';
 import { useGlobalOverlayScrollbars } from '@/hooks/useGlobalOverlayScrollbars';
 import { useUpdateChecker } from '@/hooks/useUpdateChecker';
 import { useShadcnTheme } from '@/theme/shadcnTheme';
-import { isTauri } from '@/lib/invoke';
+import { isTauri, invoke, listen } from '@/lib/invoke';
 import { preloadChatRenderers } from '@/lib/preloadChatRenderers';
 import { enableD2, setDefaultI18nMap } from 'markstream-react';
 import './i18n';
@@ -35,9 +35,29 @@ async function showWindow() {
 
 function AppInner() {
   const { token } = useToken();
+  const { t } = useTranslation();
+  const { modal } = AntdApp.useApp();
   const activePage = useUIStore((s) => s.activePage);
   const { open: cmdOpen, setOpen: setCmdOpen } = useCommandPalette();
   const isInSettings = activePage === 'settings';
+
+  // Handle app close confirmation from backend
+  const handleCloseRequested = useCallback(() => {
+    modal.confirm({
+      title: t('desktop.closeConfirmTitle'),
+      content: t('desktop.closeConfirmContent'),
+      okText: t('desktop.closeConfirmOk'),
+      cancelText: t('desktop.closeConfirmCancel'),
+      okButtonProps: { danger: true },
+      onOk: () => invoke('force_quit'),
+    });
+  }, [modal, t]);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    const unlisten = listen('app-close-requested', handleCloseRequested);
+    return () => { unlisten.then((fn) => fn()); };
+  }, [handleCloseRequested]);
 
   // Sync Ant Design tokens to CSS custom properties for global usage
   useEffect(() => {
@@ -152,7 +172,7 @@ function AppRoot() {
         const { invoke: tauriInvoke } = await import('@tauri-apps/api/core');
         await tauriInvoke('apply_startup_settings', {
           alwaysOnTop: settings.always_on_top ?? false,
-          closeToTray: settings.close_to_tray ?? true,
+          closeToTray: settings.minimize_to_tray ?? false,
         });
       } catch (e) {
         console.warn('Failed to apply native settings:', e);

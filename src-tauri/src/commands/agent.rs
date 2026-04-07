@@ -10,9 +10,26 @@ use open_agent_sdk::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock, Mutex};
 use tauri::{Emitter, State};
 use tokio::sync::RwLock;
+
+/// In-memory set of conversation IDs with an actively running agent task.
+/// Used as the source of truth for concurrency checks (more reliable than DB status).
+static RUNNING_AGENTS: LazyLock<Mutex<HashSet<String>>> =
+    LazyLock::new(|| Mutex::new(HashSet::new()));
+
+/// RAII guard that removes a conversation ID from RUNNING_AGENTS on drop.
+/// Ensures cleanup even if the spawned task panics.
+struct RunningAgentGuard(String);
+
+impl Drop for RunningAgentGuard {
+    fn drop(&mut self) {
+        if let Ok(mut running) = RUNNING_AGENTS.lock() {
+            running.remove(&self.0);
+        }
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Payload types for Tauri events
@@ -197,9 +214,12 @@ pub async fn agent_query(
             .map_err(|e| e.to_string())?
             .ok_or("Agent session not found. Please switch to Agent mode first.")?;
 
-    // 2. Concurrent check
-    if session.runtime_status == "running" || session.runtime_status == "waiting_approval" {
-        return Err("Agent is already running".to_string());
+    // 2. Concurrent check — use in-memory set as source of truth
+    {
+        let running = RUNNING_AGENTS.lock().unwrap();
+        if running.contains(&conversation_id) {
+            return Err("Agent is already running".to_string());
+        }
     }
 
     // 3. Set runtime_status to 'running'
@@ -474,7 +494,12 @@ pub async fn agent_query(
 
     tracing::info!("[agent] Agent created for conversation {}, model {}", conversation_id, model_id);
 
-    // 10. Spawn background task
+    // 10. Spawn background task — mark as running in-memory
+    {
+        let mut running = RUNNING_AGENTS.lock().unwrap();
+        running.insert(conversation_id.clone());
+    }
+
     let db = state.sea_db.clone();
     let session_id = session.id.clone();
     let conv_id = conversation_id.clone();
@@ -486,6 +511,9 @@ pub async fn agent_query(
     let title_prompt = prompt.clone();
 
     tokio::spawn(async move {
+        // RAII guard: ensures conv_id is removed from RUNNING_AGENTS on exit (even panic)
+        let _running_guard = RunningAgentGuard(conv_id.clone());
+
         tracing::info!("[agent] Background task started for conversation {}", conv_id);
         let (mut rx, handle) = agent.query(&prompt).await;
 
@@ -788,7 +816,7 @@ pub async fn agent_query(
                     let _ = agent_session::update_agent_session_status(
                         &db,
                         &session_id,
-                        "error",
+                        "idle",
                     )
                     .await;
                     return;
@@ -860,7 +888,7 @@ pub async fn agent_query(
                     let _ = agent_session::update_agent_session_status(
                         &db,
                         &session_id,
-                        "error",
+                        "idle",
                     )
                     .await;
                     return;
@@ -882,7 +910,7 @@ pub async fn agent_query(
             let _ = agent_session::update_agent_session_status(
                 &db,
                 &session_id,
-                "error",
+                "idle",
             )
             .await;
             return;
@@ -1033,15 +1061,18 @@ pub async fn agent_query(
         let sdk_context = sdk_messages
             .as_ref()
             .and_then(|msgs| serde_json::to_string(msgs).ok());
-        let _ = agent_session::update_agent_session_after_query(
+        if let Err(e) = agent_session::update_agent_session_after_query(
             &db,
             &session_id,
-            "completed",
+            "idle",
             sdk_context.as_deref(),
             tokens_delta,
             cost_usd,
         )
-        .await;
+        .await
+        {
+            tracing::error!("[agent] Failed to update session after query: {}", e);
+        }
     });
 
     Ok(())
@@ -1089,12 +1120,15 @@ pub async fn agent_cancel(
             .map_err(|e| e.to_string())?
             .ok_or("Agent session not found")?;
 
-    // Reset to idle
+    // Reset DB status to idle
     agent_session::update_agent_session_status(&state.sea_db, &session.id, "idle")
         .await
         .map_err(|e| e.to_string())?;
 
-    // TODO: Phase 2 — abort running agent via stored JoinHandle
+    // Remove from in-memory running set
+    if let Ok(mut running) = RUNNING_AGENTS.lock() {
+        running.remove(&conversation_id);
+    }
 
     Ok(())
 }

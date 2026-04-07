@@ -88,6 +88,8 @@ pub struct AgentToolUsePayload {
     #[serde(rename = "toolName")]
     pub tool_name: String,
     pub input: Value,
+    #[serde(rename = "executionId")]
+    pub execution_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -192,6 +194,36 @@ fn truncate_preview(s: &str, max_len: usize) -> String {
     } else {
         format!("{}…", &s[..max_len.min(s.len())])
     }
+}
+
+/// Extract a short human-readable summary from tool input JSON for inline rendering.
+fn get_tool_input_summary(tool_name: &str, input: &Value) -> String {
+    let try_key = |key: &str| input.get(key).and_then(|v| v.as_str()).map(|s| s.to_string());
+
+    if let Some(cmd) = try_key("command") {
+        return cmd.chars().take(80).collect();
+    }
+    if let Some(path) = try_key("path").or_else(|| try_key("file_path")) {
+        return path;
+    }
+    if let Some(pattern) = try_key("pattern") {
+        return pattern.chars().take(80).collect();
+    }
+    if let Some(query) = try_key("query") {
+        return query.chars().take(80).collect();
+    }
+    if let Some(content) = try_key("content") {
+        return content.chars().take(60).collect();
+    }
+    // Fallback: first string value
+    if let Some(obj) = input.as_object() {
+        for val in obj.values() {
+            if let Some(s) = val.as_str() {
+                return s.chars().take(80).collect();
+            }
+        }
+    }
+    tool_name.to_string()
 }
 
 // ---------------------------------------------------------------------------
@@ -534,17 +566,14 @@ pub async fn agent_query(
         while let Some(msg) = rx.recv().await {
             match msg {
                 SDKMessage::Assistant { message: msg, .. } => {
-                    // Two-pass processing: first create/update the assistant message,
-                    // then emit tool_use events with the correct assistant message ID.
+                    // Ordered processing: collect text/thinking in order,
+                    // collect tool_use blocks for processing after message creation.
+                    let mut pending_tool_uses: Vec<(String, String, Value)> = Vec::new();
 
-                    // Pass 1: collect text and thinking (only if deltas weren't already streamed)
                     if !has_streamed_deltas {
-                        let mut text_parts = Vec::new();
+                        // Process content blocks in order to preserve interleaving
                         for block in &msg.content {
                             match block {
-                                ContentBlock::Text { text } => {
-                                    text_parts.push(text.as_str());
-                                }
                                 ContentBlock::Thinking { thinking, .. } => {
                                     if !in_thinking_block {
                                         if !accumulated_text.is_empty() {
@@ -567,34 +596,42 @@ pub async fn agent_query(
                                         },
                                     );
                                 }
+                                ContentBlock::Text { text } => {
+                                    if in_thinking_block {
+                                        accumulated_text.push_str("\n</think>\n\n");
+                                        in_thinking_block = false;
+                                    }
+                                    accumulated_text.push_str(text);
+
+                                    let _ = app.emit(
+                                        "agent-stream-text",
+                                        AgentTextPayload {
+                                            conversation_id: conv_id.clone(),
+                                            assistant_message_id: current_assistant_msg_id
+                                                .clone()
+                                                .unwrap_or_default(),
+                                            text: text.clone(),
+                                        },
+                                    );
+                                }
+                                ContentBlock::ToolUse { id, name, input } => {
+                                    pending_tool_uses.push((id.clone(), name.clone(), input.clone()));
+                                }
                                 _ => {}
                             }
                         }
-
-                        let new_text: String = text_parts.join("");
-                        if !new_text.is_empty() {
-                            if in_thinking_block {
-                                accumulated_text.push_str("\n</think>\n\n");
-                                in_thinking_block = false;
+                    } else {
+                        // Deltas already streamed text/thinking; only collect tool_use blocks
+                        for block in &msg.content {
+                            if let ContentBlock::ToolUse { id, name, input } = block {
+                                pending_tool_uses.push((id.clone(), name.clone(), input.clone()));
                             }
-                            accumulated_text.push_str(&new_text);
-
-                            let _ = app.emit(
-                                "agent-stream-text",
-                                AgentTextPayload {
-                                    conversation_id: conv_id.clone(),
-                                    assistant_message_id: current_assistant_msg_id
-                                        .clone()
-                                        .unwrap_or_default(),
-                                    text: new_text,
-                                },
-                            );
                         }
                     }
                     // Reset delta flag for next turn
                     has_streamed_deltas = false;
 
-                    // Create or update assistant message BEFORE emitting tool events
+                    // Create or update assistant message BEFORE processing tool events
                     if current_assistant_msg_id.is_none() {
                         if let Ok(assist_msg) = message::create_message(
                             &db,
@@ -628,24 +665,18 @@ pub async fn agent_query(
                                 .await;
                     }
 
-                    // Pass 2: process tool_use blocks (now current_assistant_msg_id is set)
-                    for block in &msg.content {
-                        if let ContentBlock::ToolUse { id, name, input } = block {
+                    // Process tool_use blocks: create DB records, insert inline markers
+                    if !pending_tool_uses.is_empty() {
+                        // Close any open thinking block before tool markers
+                        if in_thinking_block {
+                            accumulated_text.push_str("\n</think>\n\n");
+                            in_thinking_block = false;
+                        }
+
+                        for (sdk_id, name, input) in &pending_tool_uses {
                             tracing::info!(
                                 "[agent] ToolUse in assistant message: {} ({}), assistantMsgId={:?}",
-                                name, id, current_assistant_msg_id
-                            );
-                            let _ = app.emit(
-                                "agent-tool-use",
-                                AgentToolUsePayload {
-                                    conversation_id: conv_id.clone(),
-                                    assistant_message_id: current_assistant_msg_id
-                                        .clone()
-                                        .unwrap_or_default(),
-                                    tool_use_id: id.clone(),
-                                    tool_name: name.clone(),
-                                    input: input.clone(),
-                                },
+                                name, sdk_id, current_assistant_msg_id
                             );
 
                             // Create tool_execution record in DB
@@ -653,19 +684,66 @@ pub async fn agent_query(
                                 &serde_json::to_string(input).unwrap_or_default(),
                                 500,
                             );
-                            if let Ok(exec) = tool_execution::create_tool_execution(
+                            let exec_id = if let Ok(exec) = tool_execution::create_tool_execution(
                                 &db,
                                 &conv_id,
                                 current_assistant_msg_id.as_deref(),
                                 "__agent_sdk__",
-                                name,
+                                &name,
                                 Some(&input_str),
                                 None,
                             )
                             .await
                             {
-                                tool_exec_map.insert(id.clone(), exec.id);
-                            }
+                                let eid = exec.id.clone();
+                                tool_exec_map.insert(sdk_id.clone(), eid.clone());
+                                Some(eid)
+                            } else {
+                                None
+                            };
+
+                            // Build inline <tool-call> marker with DB execution ID
+                            let summary = get_tool_input_summary(&name, input);
+                            let tag_id = exec_id.as_deref().unwrap_or(sdk_id);
+                            let marker = format!(
+                                "\n\n<tool-call data-aqbot=\"1\" id=\"{}\" name=\"{}\">{}</tool-call>\n\n",
+                                tag_id, name, summary
+                            );
+                            accumulated_text.push_str(&marker);
+
+                            // Emit agent-stream-text so frontend content updates in real-time
+                            let _ = app.emit(
+                                "agent-stream-text",
+                                AgentTextPayload {
+                                    conversation_id: conv_id.clone(),
+                                    assistant_message_id: current_assistant_msg_id
+                                        .clone()
+                                        .unwrap_or_default(),
+                                    text: marker,
+                                },
+                            );
+
+                            // Emit agent-tool-use event for agentStore
+                            let _ = app.emit(
+                                "agent-tool-use",
+                                AgentToolUsePayload {
+                                    conversation_id: conv_id.clone(),
+                                    assistant_message_id: current_assistant_msg_id
+                                        .clone()
+                                        .unwrap_or_default(),
+                                    tool_use_id: sdk_id.clone(),
+                                    tool_name: name.clone(),
+                                    input: input.clone(),
+                                    execution_id: exec_id,
+                                },
+                            );
+                        }
+
+                        // Update message content with tool-call markers
+                        if let Some(ref mid) = current_assistant_msg_id {
+                            let _ =
+                                message::update_message_content(&db, mid, &accumulated_text)
+                                    .await;
                         }
                     }
                 }

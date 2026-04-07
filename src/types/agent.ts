@@ -20,6 +20,7 @@ export interface ToolUseEvent {
   toolUseId: string;
   toolName: string;
   input: Record<string, unknown>;
+  executionId?: string;
 }
 
 export interface ToolStartEvent {

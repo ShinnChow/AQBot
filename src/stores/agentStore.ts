@@ -26,7 +26,8 @@ interface AgentStore {
   // Runtime state
   agentStatus: Record<string, string>; // conversationId → status message
   pendingPermissions: Record<string, PermissionRequestEvent>; // toolUseId → request
-  toolCalls: Record<string, ToolCallState>; // toolUseId → state
+  toolCalls: Record<string, ToolCallState>; // toolUseId or execId → state
+  sdkIdToExecId: Record<string, string>; // SDK toolUseId → DB execution ID mapping
   queryStats: Record<string, QueryStats>; // assistantMessageId → cost stats
 
   // Actions
@@ -57,6 +58,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
   agentStatus: {},
   pendingPermissions: {},
   toolCalls: {},
+  sdkIdToExecId: {},
   queryStats: {},
 
   fetchSession: async (conversationId) => {
@@ -118,36 +120,49 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
   },
 
   handleToolUse: (event) => {
-    set((s) => ({
-      toolCalls: {
-        ...s.toolCalls,
-        [event.toolUseId]: {
-          toolUseId: event.toolUseId,
-          toolName: event.toolName,
-          input: event.input,
-          assistantMessageId: event.assistantMessageId,
-          executionStatus: 'queued',
-        },
-      },
-    }));
+    set((s) => {
+      const toolCall: ToolCallState = {
+        toolUseId: event.toolUseId,
+        toolName: event.toolName,
+        input: event.input,
+        assistantMessageId: event.assistantMessageId,
+        executionStatus: 'queued',
+      };
+      const updates: Record<string, ToolCallState> = {
+        [event.toolUseId]: toolCall,
+      };
+      const idMap = { ...s.sdkIdToExecId };
+      // Also store by DB execution ID for inline <tool-call> tag lookups
+      if (event.executionId) {
+        updates[event.executionId] = { ...toolCall, toolUseId: event.executionId };
+        idMap[event.toolUseId] = event.executionId;
+      }
+      return {
+        toolCalls: { ...s.toolCalls, ...updates },
+        sdkIdToExecId: idMap,
+      };
+    });
   },
 
   handleToolStart: (event) => {
     set((s) => {
       const existing = s.toolCalls[event.toolUseId];
-      return {
-        toolCalls: {
-          ...s.toolCalls,
-          [event.toolUseId]: {
-            toolUseId: event.toolUseId,
-            toolName: event.toolName,
-            input: event.input,
-            assistantMessageId: event.assistantMessageId,
-            executionStatus: 'running',
-            approvalStatus: existing?.approvalStatus,
-          },
-        },
+      const updated: ToolCallState = {
+        toolUseId: event.toolUseId,
+        toolName: event.toolName,
+        input: event.input,
+        assistantMessageId: event.assistantMessageId,
+        executionStatus: 'running',
+        approvalStatus: existing?.approvalStatus,
       };
+      const updates: Record<string, ToolCallState> = {
+        [event.toolUseId]: updated,
+      };
+      const execId = s.sdkIdToExecId[event.toolUseId];
+      if (execId) {
+        updates[execId] = { ...updated, toolUseId: execId };
+      }
+      return { toolCalls: { ...s.toolCalls, ...updates } };
     });
   },
 
@@ -155,21 +170,24 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     set((s) => {
       const existing = s.toolCalls[event.toolUseId];
       const newStatus = event.isError ? 'failed' : 'success';
-      return {
-        toolCalls: {
-          ...s.toolCalls,
-          [event.toolUseId]: {
-            toolUseId: event.toolUseId,
-            toolName: event.toolName || existing?.toolName || '',
-            input: existing?.input ?? {},
-            assistantMessageId: event.assistantMessageId,
-            executionStatus: newStatus,
-            approvalStatus: existing?.approvalStatus,
-            output: event.content,
-            isError: event.isError,
-          },
-        },
+      const updated: ToolCallState = {
+        toolUseId: event.toolUseId,
+        toolName: event.toolName || existing?.toolName || '',
+        input: existing?.input ?? {},
+        assistantMessageId: event.assistantMessageId,
+        executionStatus: newStatus,
+        approvalStatus: existing?.approvalStatus,
+        output: event.content,
+        isError: event.isError,
       };
+      const updates: Record<string, ToolCallState> = {
+        [event.toolUseId]: updated,
+      };
+      const execId = s.sdkIdToExecId[event.toolUseId];
+      if (execId) {
+        updates[execId] = { ...updated, toolUseId: execId };
+      }
+      return { toolCalls: { ...s.toolCalls, ...updates } };
     });
   },
 

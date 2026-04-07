@@ -31,7 +31,6 @@ import { getStreamingLoadingState } from './chatStreaming';
 import { buildAssistantDisplayContent, shouldHideAssistantBubble } from './toolCallDisplay';
 import { ChatScrollIndicator } from './ChatScrollIndicator';
 import PermissionCard from './PermissionCard';
-import { ToolCallCard } from './ToolCallCard';
 
 import { invoke } from '@/lib/invoke';
 import { useResolvedAvatarSrc } from '@/hooks/useResolvedAvatarSrc';
@@ -753,7 +752,178 @@ function ChatD2Node(props: NodeComponentProps<ChatD2CodeBlockNode>) {
   return <ChatD2BlockNode node={node} isDark={ctx?.isDark} />;
 }
 
-setCustomComponents('chat', { think: ThinkNode, 'web-search': WebSearchNode, 'knowledge-retrieval': KnowledgeRetrievalNode, 'memory-retrieval': MemoryRetrievalNode, d2: ChatD2Node, vmr_container: McpContainerNode });
+// ── Inline tool-call node (renders inside markdown content flow) ──────
+
+const toolCallIcons: Record<string, React.ReactNode> = {
+  bash: <Code size={14} />,
+  write: <FileCode size={14} />,
+  read: <FileText size={14} />,
+  edit: <FileCode size={14} />,
+  glob: <FileType size={14} />,
+  grep: <FileText size={14} />,
+  ls: <FileType size={14} />,
+};
+
+function getInlineToolIcon(toolName: string): React.ReactNode {
+  const lower = toolName.toLowerCase();
+  for (const [key, icon] of Object.entries(toolCallIcons)) {
+    if (lower.includes(key)) return icon;
+  }
+  return <Zap size={14} />;
+}
+
+const toolCallStatusColors: Record<string, string> = {
+  queued: '#faad14',
+  running: '#1890ff',
+  success: '#52c41a',
+  failed: '#ff4d4f',
+  cancelled: '#8c8c8c',
+};
+
+function ToolCallNode(props: NodeComponentProps<{
+  type: 'tool-call';
+  content: string;
+  attrs?: CustomNodeAttrs;
+}>) {
+  const { node } = props;
+  const { token } = theme.useToken();
+  const { t } = useTranslation();
+  const toolCalls = useAgentStore((s) => s.toolCalls);
+  const [expanded, setExpanded] = useState(false);
+
+  const execId = getCustomAttr(node.attrs, 'id') ?? '';
+  const toolName = getCustomAttr(node.attrs, 'name') ?? '';
+  const summary = String(node.content ?? '');
+
+  const tc = toolCalls[execId];
+  const status = tc?.executionStatus ?? 'success';
+  const statusColor = toolCallStatusColors[status] || token.colorTextSecondary;
+  const isLoading = status === 'queued' || status === 'running';
+  const hasDetails = tc && (tc.input || tc.output);
+
+  return (
+    <div style={{ margin: '4px 0' }}>
+      <div
+        onClick={() => hasDetails && setExpanded(!expanded)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '4px 10px',
+          borderRadius: token.borderRadius,
+          backgroundColor: token.colorFillQuaternary,
+          border: `1px solid ${token.colorBorderSecondary}`,
+          fontSize: 13,
+          lineHeight: '20px',
+          fontFamily: 'monospace',
+          cursor: hasDetails ? 'pointer' : 'default',
+          userSelect: 'none',
+        }}
+      >
+        <span style={{ color: statusColor, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          {getInlineToolIcon(toolName)}
+        </span>
+        <span style={{ fontWeight: 500, flexShrink: 0 }}>{toolName}</span>
+        {summary && (
+          <>
+            <span style={{ color: token.colorTextQuaternary }}>›</span>
+            <Typography.Text
+              type="secondary"
+              ellipsis
+              style={{ fontSize: 12, flex: 1, minWidth: 0 }}
+            >
+              {summary}
+            </Typography.Text>
+          </>
+        )}
+        {isLoading ? (
+          <SyncOutlined style={{ fontSize: 12, color: statusColor }} spin />
+        ) : (
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              backgroundColor: statusColor,
+              flexShrink: 0,
+            }}
+          />
+        )}
+        {hasDetails && (
+          <span style={{ color: token.colorTextSecondary, display: 'flex', alignItems: 'center', flexShrink: 0, transition: 'transform 0.2s', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+            <ChevronDown size={14} />
+          </span>
+        )}
+      </div>
+      {expanded && hasDetails && (
+        <div
+          style={{
+            margin: '2px 0 0',
+            padding: '6px 10px',
+            borderRadius: token.borderRadius,
+            backgroundColor: token.colorFillQuaternary,
+            border: `1px solid ${token.colorBorderSecondary}`,
+            borderTop: 'none',
+            fontSize: 12,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4,
+          }}
+        >
+          {tc.input && Object.keys(tc.input).length > 0 && (
+            <details style={{ margin: 0 }}>
+              <summary style={{ fontSize: 12, color: token.colorTextSecondary, cursor: 'pointer', userSelect: 'none' }}>
+                {t('chat.inspector.toolInput', '输入参数')}
+              </summary>
+              <pre
+                style={{
+                  margin: '4px 0 0',
+                  padding: 8,
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                  backgroundColor: token.colorBgTextHover,
+                  borderRadius: token.borderRadius,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-all',
+                  maxHeight: 200,
+                  overflow: 'auto',
+                }}
+              >
+                {JSON.stringify(tc.input, null, 2)}
+              </pre>
+            </details>
+          )}
+          {tc.output && (
+            <details style={{ margin: 0 }}>
+              <summary style={{ fontSize: 12, color: token.colorTextSecondary, cursor: 'pointer', userSelect: 'none' }}>
+                {t('chat.inspector.toolOutput', '执行结果')}
+              </summary>
+              <pre
+                style={{
+                  margin: '4px 0 0',
+                  padding: 8,
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                  backgroundColor: token.colorBgTextHover,
+                  borderRadius: token.borderRadius,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-all',
+                  maxHeight: 200,
+                  overflow: 'auto',
+                  color: tc.isError ? token.colorError : undefined,
+                }}
+              >
+                {tc.output}
+              </pre>
+            </details>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+setCustomComponents('chat', { think: ThinkNode, 'web-search': WebSearchNode, 'knowledge-retrieval': KnowledgeRetrievalNode, 'memory-retrieval': MemoryRetrievalNode, 'tool-call': ToolCallNode, d2: ChatD2Node, vmr_container: McpContainerNode });
 
 const AssistantMarkdown = React.memo(function AssistantMarkdown({
   content,
@@ -2170,10 +2340,6 @@ export function ChatView() {
         }
 
         const isAgentMode = activeConversation?.mode === 'agent';
-        const allToolCalls = Object.values(agentToolCalls);
-        const msgToolCalls = isAgentMode && msg
-          ? allToolCalls.filter((tc) => tc.assistantMessageId === msg.id)
-          : [];
         const msgPermissions = isAgentMode && msg && activeConversationId
           ? Object.values(agentPendingPermissions).filter((pr) =>
               pr.conversationId === activeConversationId && (
@@ -2184,8 +2350,8 @@ export function ChatView() {
             )
           : [];
 
-        // In agent mode: show inline loading dots only when no content AND no tool calls yet
-        if (isAgentMsg && rawBubbleLoading && msgToolCalls.length === 0 && msgPermissions.length === 0) {
+        // In agent mode: show inline loading dots only when no content AND no permissions yet
+        if (isAgentMsg && rawBubbleLoading && msgPermissions.length === 0) {
           return (
             <span className="aqbot-streaming-dots" aria-hidden="true">
               <span /><span /><span />
@@ -2195,18 +2361,15 @@ export function ChatView() {
 
         return (
           <>
-            {msgToolCalls.length > 0 && (
-              <ToolCallCard
-                toolCalls={msgToolCalls.map((tc) => ({
-                  toolUseId: tc.toolUseId,
-                  toolName: tc.toolName,
-                  status: tc.executionStatus === 'failed' ? 'error' as const : tc.executionStatus,
-                  input: JSON.stringify(tc.input, null, 2),
-                  output: tc.output,
-                  isError: tc.isError,
-                }))}
-              />
-            )}
+            <AssistantMarkdown
+              content={content}
+              nodes={parsedNodes}
+              isDarkMode={isDarkMode}
+              isStreaming={isStreaming}
+              codeBlockDarkTheme={codeBlockDarkTheme}
+              codeBlockThemes={codeBlockThemes}
+              codeFontFamily={settings.code_font_family || undefined}
+            />
             {msgPermissions.map((pr) => {
               const resolvedTc = agentToolCalls[pr.toolUseId];
               const permStatus = resolvedTc?.approvalStatus === 'approved'
@@ -2225,15 +2388,6 @@ export function ChatView() {
                 />
               );
             })}
-            <AssistantMarkdown
-              content={content}
-              nodes={parsedNodes}
-              isDarkMode={isDarkMode}
-              isStreaming={isStreaming}
-              codeBlockDarkTheme={codeBlockDarkTheme}
-              codeBlockThemes={codeBlockThemes}
-              codeFontFamily={settings.code_font_family || undefined}
-            />
             {/* Show loading dots when agent is streaming but footer dots are NOT showing (no text content yet) */}
             {isAgentMsg && isStreaming && !footerLoading && (
               <div className="aqbot-streaming-dots" aria-hidden="true" style={{ marginTop: 8 }}>

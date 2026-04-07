@@ -268,3 +268,20 @@ jobs:
             src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/deb/*.deb
             src-tauri/target/aarch64-unknown-linux-gnu/release/bundle/rpm/*.rpm
 
+  # ── Publish draft release as latest ────────────────────
+  publish-release:
+    name: Publish Release
+    needs: [release, release-linux-arm]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
+          make_latest: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+

@@ -218,7 +218,19 @@
     "pinnedModels": "Закреплённые модели",
     "scrollToBottom": "Прокрутить вниз",
     "searchModelOrProvider": "Поиск модели или провайдера",
-    "switchModel": "Сменить модель"
+    "switchModel": "Сменить модель",
+    "stats": {
+      "title": "Статистика диалога",
+      "totalMessages": "Всего сообщений",
+      "totalTokens": "Всего токенов",
+      "inputTokens": "Входные токены",
+      "outputTokens": "Выходные токены",
+      "avgFirstToken": "Ср. первый ответ",
+      "avgResponseTime": "Ср. время ответа",
+      "userMessages": "Сообщения пользователя",
+      "assistantMessages": "Сообщения ИИ",
+      "avgSpeed": "Ср. скорость"
+    }
   },
   "gateway": {
     "title": "Шлюз",
@@ -382,6 +394,12 @@
     "bubbleModern": "Современный",
     "bubbleCompact": "Компактный",
     "bubbleMinimal": "Минимальный",
+    "chatMinimap": "Навигация по чату",
+    "chatMinimapEnabled": "Включить навигацию по чату",
+    "chatMinimapEnabledDesc": "Отображает плавающую навигацию в области чата для быстрого доступа к сообщениям",
+    "chatMinimapStyle": "Стиль навигации",
+    "chatMinimapFaq": "Индекс вопросов",
+    "chatMinimapSticky": "Плавающий индикатор",
     "codeTheme": "Тема кода",
     "proxyType": "Тип прокси",
     "proxyAddress": "Адрес прокси",

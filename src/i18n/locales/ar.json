@@ -218,7 +218,19 @@
     "pinnedModels": "النماذج المثبّتة",
     "scrollToBottom": "التمرير إلى الأسفل",
     "searchModelOrProvider": "البحث عن نموذج أو مزوّد",
-    "switchModel": "تبديل النموذج"
+    "switchModel": "تبديل النموذج",
+    "stats": {
+      "title": "إحصائيات المحادثة",
+      "totalMessages": "إجمالي الرسائل",
+      "totalTokens": "إجمالي الرموز",
+      "inputTokens": "رموز الإدخال",
+      "outputTokens": "رموز الإخراج",
+      "avgFirstToken": "متوسط أول استجابة",
+      "avgResponseTime": "متوسط وقت الاستجابة",
+      "userMessages": "رسائل المستخدم",
+      "assistantMessages": "رسائل الذكاء الاصطناعي",
+      "avgSpeed": "متوسط السرعة"
+    }
   },
   "gateway": {
     "title": "البوابة",
@@ -382,6 +394,12 @@
     "bubbleModern": "حديث",
     "bubbleCompact": "مضغوط",
     "bubbleMinimal": "بسيط",
+    "chatMinimap": "التنقل في المحادثة",
+    "chatMinimapEnabled": "تفعيل التنقل في المحادثة",
+    "chatMinimapEnabledDesc": "يعرض شريط تنقل عائم في منطقة المحادثة للوصول السريع إلى الرسائل",
+    "chatMinimapStyle": "نمط التنقل",
+    "chatMinimapFaq": "فهرس الأسئلة",
+    "chatMinimapSticky": "مؤشر عائم",
     "codeTheme": "سمة الكود",
     "proxyType": "نوع الوكيل",
     "proxyAddress": "عنوان الوكيل",

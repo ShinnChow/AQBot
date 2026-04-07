@@ -218,7 +218,19 @@
     "pinnedModels": "Modèles épinglés",
     "scrollToBottom": "Défiler vers le bas",
     "searchModelOrProvider": "Rechercher un modèle ou un fournisseur",
-    "switchModel": "Changer de modèle"
+    "switchModel": "Changer de modèle",
+    "stats": {
+      "title": "Statistiques de conversation",
+      "totalMessages": "Total des messages",
+      "totalTokens": "Total des tokens",
+      "inputTokens": "Tokens d'entrée",
+      "outputTokens": "Tokens de sortie",
+      "avgFirstToken": "Première réponse moy.",
+      "avgResponseTime": "Temps de réponse moy.",
+      "userMessages": "Messages utilisateur",
+      "assistantMessages": "Messages IA",
+      "avgSpeed": "Vitesse moyenne"
+    }
   },
   "gateway": {
     "title": "Passerelle",
@@ -382,7 +394,12 @@
     "bubbleModern": "Moderne",
     "bubbleCompact": "Compact",
     "bubbleMinimal": "Minimal",
-    "codeTheme": "Thème de code",
+    "chatMinimap": "Navigation de chat",
+    "chatMinimapEnabled": "Activer la navigation de chat",
+    "chatMinimapEnabledDesc": "Affiche une navigation flottante dans la zone de chat pour un accès rapide aux messages",
+    "chatMinimapStyle": "Style de navigation",
+    "chatMinimapFaq": "Index des questions",
+    "chatMinimapSticky": "Indicateur flottant",
     "proxyType": "Type de proxy",
     "proxyAddress": "Adresse du proxy",
     "proxyPort": "Port du proxy",

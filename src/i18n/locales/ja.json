@@ -218,7 +218,19 @@
     "pinnedModels": "ピン留めモデル",
     "scrollToBottom": "最下部へスクロール",
     "searchModelOrProvider": "モデルまたはプロバイダーを検索",
-    "switchModel": "モデルを切り替え"
+    "switchModel": "モデルを切り替え",
+    "stats": {
+      "title": "会話統計",
+      "totalMessages": "合計メッセージ数",
+      "totalTokens": "合計トークン",
+      "inputTokens": "入力トークン",
+      "outputTokens": "出力トークン",
+      "avgFirstToken": "平均初回応答",
+      "avgResponseTime": "平均応答時間",
+      "userMessages": "ユーザーメッセージ",
+      "assistantMessages": "AIメッセージ",
+      "avgSpeed": "平均速度"
+    }
   },
   "gateway": {
     "title": "ゲートウェイ",
@@ -382,6 +394,12 @@
     "bubbleModern": "モダン",
     "bubbleCompact": "コンパクト",
     "bubbleMinimal": "ミニマル",
+    "chatMinimap": "チャットナビゲーション",
+    "chatMinimapEnabled": "チャットナビゲーションを有効化",
+    "chatMinimapEnabledDesc": "チャットエリアにフローティングナビゲーションを表示し、メッセージへの素早いアクセスを可能にします",
+    "chatMinimapStyle": "ナビゲーションスタイル",
+    "chatMinimapFaq": "質問インデックス",
+    "chatMinimapSticky": "フローティングインジケーター",
     "codeTheme": "コードテーマ",
     "proxyType": "プロキシタイプ",
     "proxyAddress": "プロキシアドレス",

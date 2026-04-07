@@ -218,7 +218,19 @@
     "pinnedModels": "置頂模型",
     "scrollToBottom": "回到底部",
     "searchModelOrProvider": "搜尋模型或服務商",
-    "switchModel": "切換模型"
+    "switchModel": "切換模型",
+    "stats": {
+      "title": "對話統計",
+      "totalMessages": "總訊息數",
+      "totalTokens": "總 Tokens",
+      "inputTokens": "輸入 Tokens",
+      "outputTokens": "輸出 Tokens",
+      "avgFirstToken": "平均首次回應",
+      "avgResponseTime": "平均耗時",
+      "userMessages": "使用者訊息",
+      "assistantMessages": "AI 訊息",
+      "avgSpeed": "平均速度"
+    }
   },
   "gateway": {
     "title": "閘道",
@@ -382,6 +394,12 @@
     "bubbleModern": "現代",
     "bubbleCompact": "緊湊",
     "bubbleMinimal": "簡約",
+    "chatMinimap": "對話導航",
+    "chatMinimapEnabled": "啟用對話導航",
+    "chatMinimapEnabledDesc": "在聊天區域顯示浮動導航，方便快速定位歷史訊息",
+    "chatMinimapStyle": "導航樣式",
+    "chatMinimapFaq": "問題索引",
+    "chatMinimapSticky": "浮動指示器",
     "codeTheme": "程式碼主題",
     "proxyType": "代理類型",
     "proxyAddress": "代理位址",

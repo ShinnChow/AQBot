@@ -218,7 +218,19 @@
     "pinnedModels": "Angeheftete Modelle",
     "scrollToBottom": "Nach unten scrollen",
     "searchModelOrProvider": "Modell oder Anbieter suchen",
-    "switchModel": "Modell wechseln"
+    "switchModel": "Modell wechseln",
+    "stats": {
+      "title": "Gesprächsstatistiken",
+      "totalMessages": "Nachrichten gesamt",
+      "totalTokens": "Tokens gesamt",
+      "inputTokens": "Eingabe-Tokens",
+      "outputTokens": "Ausgabe-Tokens",
+      "avgFirstToken": "Ø Erste Antwort",
+      "avgResponseTime": "Ø Antwortzeit",
+      "userMessages": "Benutzernachrichten",
+      "assistantMessages": "KI-Nachrichten",
+      "avgSpeed": "Ø Geschwindigkeit"
+    }
   },
   "gateway": {
     "title": "Gateway",
@@ -382,6 +394,12 @@
     "bubbleModern": "Modern",
     "bubbleCompact": "Kompakt",
     "bubbleMinimal": "Minimal",
+    "chatMinimap": "Chat-Navigation",
+    "chatMinimapEnabled": "Chat-Navigation aktivieren",
+    "chatMinimapEnabledDesc": "Zeigt eine schwebende Navigation im Chatbereich für schnellen Zugriff auf Nachrichten",
+    "chatMinimapStyle": "Navigationsstil",
+    "chatMinimapFaq": "Fragenindex",
+    "chatMinimapSticky": "Schwebender Indikator",
     "codeTheme": "Code-Design",
     "proxyType": "Proxy-Typ",
     "proxyAddress": "Proxy-Adresse",

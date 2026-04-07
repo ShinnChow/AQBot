@@ -79,6 +79,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   default_system_prompt: null,
   chat_minimap_enabled: false,
   chat_minimap_style: 'faq',
+  multi_model_display_mode: 'tabs',
 };
 
 export interface GlobalShortcutDiagnostic {

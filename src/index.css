@@ -250,3 +250,17 @@ html[data-theme="dark"] .markstream-react .table-node tr,
 html[data-theme="dark"] .markstream-react .table-node thead {
   border-color: var(--table-border, var(--border-color));
 }
+
+/* Multi-model side-by-side: constrain bubble ancestors so overflow works */
+.ant-bubble:has(.aqbot-multi-model-scroll) {
+  overflow: hidden;
+  min-width: 0;
+}
+.ant-bubble:has(.aqbot-multi-model-scroll) .ant-bubble-body {
+  overflow: hidden;
+  min-width: 0;
+}
+.ant-bubble:has(.aqbot-multi-model-scroll) .ant-bubble-content {
+  overflow: hidden;
+  min-width: 0;
+}

@@ -1,5 +1,5 @@
 import { Card, Divider, Input, Select, Switch, theme } from 'antd';
-import { Map, MessageSquare } from 'lucide-react';
+import { Columns2, Map, MessageSquare } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '@/stores';
 
@@ -45,6 +45,34 @@ export function ConversationSettings() {
               { label: t('settings.bubbleModern'), value: 'modern' },
               { label: t('settings.bubbleCompact'), value: 'compact' },
               { label: t('settings.bubbleMinimal'), value: 'minimal' },
+            ]}
+          />
+        </div>
+      </Card>
+
+      <Card
+        size="small"
+        title={
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Columns2 size={16} />
+            {t('settings.multiModelDisplayMode')}
+          </span>
+        }
+        style={{ marginTop: 16 }}
+      >
+        <div style={{ fontSize: 12, color: token.colorTextDescription, marginBottom: 12 }}>
+          {t('settings.multiModelDisplayModeDesc')}
+        </div>
+        <div className="flex items-center justify-between" style={rowStyle}>
+          <span>{t('settings.multiModelDisplayMode')}</span>
+          <Select
+            value={settings.multi_model_display_mode ?? 'tabs'}
+            onChange={(val) => saveSettings({ multi_model_display_mode: val as 'tabs' | 'side-by-side' | 'stacked' })}
+            style={{ width: 200 }}
+            options={[
+              { label: t('settings.multiModelDisplayModeTabs'), value: 'tabs' },
+              { label: t('settings.multiModelDisplayModeSideBySide'), value: 'side-by-side' },
+              { label: t('settings.multiModelDisplayModeStacked'), value: 'stacked' },
             ]}
           />
         </div>

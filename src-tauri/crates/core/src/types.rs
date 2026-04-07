@@ -599,6 +599,8 @@ pub struct AppSettings {
     /// Chat minimap / navigation overlay.
     pub chat_minimap_enabled: bool,
     pub chat_minimap_style: String,
+    /// Multi-model response display mode: "tabs" | "side-by-side" | "stacked".
+    pub multi_model_display_mode: String,
 }
 
 impl Default for AppSettings {
@@ -691,6 +693,7 @@ impl Default for AppSettings {
             default_system_prompt: None,
             chat_minimap_enabled: false,
             chat_minimap_style: "faq".to_string(),
+            multi_model_display_mode: "tabs".to_string(),
         }
     }
 }

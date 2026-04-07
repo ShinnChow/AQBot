@@ -31,6 +31,7 @@ import { getStreamingLoadingState } from './chatStreaming';
 import { buildAssistantDisplayContent, shouldHideAssistantBubble } from './toolCallDisplay';
 import { ChatScrollIndicator } from './ChatScrollIndicator';
 import { ChatMinimap, MinimapScrollProvider } from './ChatMinimap';
+import { MultiModelDisplay, LayoutSwitcher, type MultiModelDisplayMode } from './MultiModelDisplay';
 import PermissionCard from './PermissionCard';
 
 import { invoke } from '@/lib/invoke';
@@ -1207,7 +1208,7 @@ function ModelTags({
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
       {Array.from(modelGroups.keys()).map((modelId) => {
         const isActive = modelId === currentModelId;
         const isStreaming = streamingModelIds.has(modelId);
@@ -1342,12 +1343,18 @@ function AssistantFooter({
   assistantCopyText,
   getModelDisplayInfo,
   isStreaming = false,
+  displayMode,
+  onDisplayModeChange,
+  onMultiModelDetected,
 }: {
   msg: Message;
   conversationId: string;
   assistantCopyText: string;
   getModelDisplayInfo: (modelId?: string | null, providerId?: string | null) => { modelName: string; providerName: string };
   isStreaming?: boolean;
+  displayMode?: MultiModelDisplayMode;
+  onDisplayModeChange?: (parentMsgId: string, mode: MultiModelDisplayMode) => void;
+  onMultiModelDetected?: (parentMsgId: string, versions: Message[]) => void;
 }) {
   const { token } = theme.useToken();
   const { t } = useTranslation();
@@ -1386,6 +1393,22 @@ function AssistantFooter({
     );
     return extra.length > 0 ? [...allVersions, ...extra] : allVersions;
   }, [allVersions, storeMessages, msg.parent_message_id]);
+
+  // Check if this message has multiple model versions
+  const hasMultiModels = useMemo(() => {
+    const models = new Set<string>();
+    for (const v of mergedVersions) {
+      if (v.model_id) models.add(v.model_id);
+    }
+    return models.size > 1;
+  }, [mergedVersions]);
+
+  // Report multi-model status to parent for aiRole rendering
+  useEffect(() => {
+    if (hasMultiModels && msg.parent_message_id && onMultiModelDetected) {
+      onMultiModelDetected(msg.parent_message_id, mergedVersions);
+    }
+  }, [hasMultiModels, msg.parent_message_id, mergedVersions, onMultiModelDetected]);
 
   // Current message's model for ModelSelector highlight
   const currentModelOverride = useMemo(() => {
@@ -1571,7 +1594,15 @@ function AssistantFooter({
         />
       </div>
       )}
-      <ModelTags msg={msg} conversationId={conversationId} allVersions={mergedVersions} getModelDisplayInfo={getModelDisplayInfo} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+        {hasMultiModels && displayMode && onDisplayModeChange && msg.parent_message_id && (
+          <LayoutSwitcher
+            currentMode={displayMode}
+            onModeChange={(mode) => onDisplayModeChange(msg.parent_message_id!, mode)}
+          />
+        )}
+        <ModelTags msg={msg} conversationId={conversationId} allVersions={mergedVersions} getModelDisplayInfo={getModelDisplayInfo} />
+      </div>
       <Modal
         open={branchModalOpen}
         title={t('chat.branchConversation')}
@@ -1734,6 +1765,7 @@ export function ChatView() {
   const compressing = useConversationStore((s) => s.compressing);
   const streamingMessageId = useConversationStore((s) => s.streamingMessageId);
   const multiModelParentId = useConversationStore((s) => s.multiModelParentId);
+  const multiModelDoneMessageIds = useConversationStore((s) => s.multiModelDoneMessageIds);
   const thinkingActiveMessageIds = useConversationStore((s) => s.thinkingActiveMessageIds);
   const storeError = useConversationStore((s) => s.error);
   const updateConversation = useConversationStore((s) => s.updateConversation);
@@ -1742,6 +1774,7 @@ export function ChatView() {
   const loadOlderMessages = useConversationStore((s) => s.loadOlderMessages);
   const regenerateMessage = useConversationStore((s) => s.regenerateMessage);
   const deleteMessageGroup = useConversationStore((s) => s.deleteMessageGroup);
+  const switchMessageVersion = useConversationStore((s) => s.switchMessageVersion);
   const updateMessageContent = useConversationStore((s) => s.updateMessageContent);
   const removeContextClear = useConversationStore((s) => s.removeContextClear);
   const getCompressionSummary = useConversationStore((s) => s.getCompressionSummary);
@@ -2111,6 +2144,48 @@ export function ChatView() {
     }
     return map;
   }, [messages]);
+
+  // Pre-compute parent IDs that have responses from multiple distinct models
+  // (from in-store messages — may be incomplete after fetchMessages since DB only returns active)
+  const multiModelResponseParents = useMemo(() => {
+    const modelsByParent = new Map<string, Set<string>>();
+    for (const msg of messages) {
+      if (msg.role === 'assistant' && msg.parent_message_id && msg.model_id) {
+        if (!modelsByParent.has(msg.parent_message_id)) {
+          modelsByParent.set(msg.parent_message_id, new Set());
+        }
+        modelsByParent.get(msg.parent_message_id)!.add(msg.model_id);
+      }
+    }
+    const result = new Set<string>();
+    for (const [parentId, models] of modelsByParent) {
+      if (models.size > 1) result.add(parentId);
+    }
+    return result;
+  }, [messages]);
+
+  // Ref-based multi-model version cache — updated by AssistantFooter when it
+  // loads all versions from DB (which includes inactive versions not in store).
+  const multiModelVersionsRef = useRef<Map<string, Message[]>>(new Map());
+  const handleMultiModelDetected = useCallback((parentMsgId: string, versions: Message[]) => {
+    multiModelVersionsRef.current.set(parentMsgId, versions);
+    // If this parent wasn't detected from store (DB only returns active), force a re-check
+    if (!multiModelResponseParents.has(parentMsgId)) {
+      // Trigger re-render so aiRole picks up the new data
+      setDisplayModeOverrides((prev) => new Map(prev));
+    }
+  }, [multiModelResponseParents]);
+
+  // Per-message display mode overrides (temporary, not persisted)
+  const [displayModeOverrides, setDisplayModeOverrides] = useState<Map<string, MultiModelDisplayMode>>(new Map());
+  const handleDisplayModeOverride = useCallback((parentMsgId: string, mode: MultiModelDisplayMode) => {
+    setDisplayModeOverrides((prev) => {
+      const next = new Map(prev);
+      next.set(parentMsgId, mode);
+      return next;
+    });
+  }, []);
+
   const userSearchContentById = useMemo(() => {
     const next = new Map<string, ReturnType<typeof parseSearchContent>>();
     for (const msg of activeMessages) {
@@ -2465,16 +2540,67 @@ export function ChatView() {
     const isMultiModelMsg = !!multiModelParentId && msg?.parent_message_id === multiModelParentId;
     const isAgentMsg = activeConversation?.mode === 'agent';
     const bubbleLoading = (isMultiModelMsg || isAgentMsg) ? false : rawBubbleLoading;
+
+    // Determine effective display mode for this message
+    const parentId = msg?.parent_message_id;
+    // Check both store-based detection and ref-based detection (from AssistantFooter DB queries)
+    const hasMultiModels = !!parentId && (
+      multiModelResponseParents.has(parentId) || multiModelVersionsRef.current.has(parentId)
+    );
+    const effectiveDisplayMode: MultiModelDisplayMode = hasMultiModels
+      ? (displayModeOverrides.get(parentId) ?? settings.multi_model_display_mode ?? 'tabs')
+      : 'tabs';
+    const isNonTabsMultiModel = hasMultiModels && effectiveDisplayMode !== 'tabs';
+
     return {
       placement: 'start' as const,
       ...getBubbleVariant(false),
-      avatar: renderConvIconForChat(32, msg?.model_id),
+      avatar: isNonTabsMultiModel ? undefined : renderConvIconForChat(32, msg?.model_id),
       loading: bubbleLoading,
       contentRender: (content: string) => {
         const msgMarker = <span data-aqbot-msg={msg?.id} style={{ height: 0, overflow: 'hidden', lineHeight: 0 }} />;
         if (msg?.status === 'error') {
           return <>{msgMarker}<Alert type="error" message={content} showIcon /></>;
         }
+
+        // Multi-model non-tabs mode: render all versions in side-by-side or stacked layout
+        if (isNonTabsMultiModel && parentId && activeConversationId) {
+          // Prefer ref-based versions (from AssistantFooter DB query, includes inactive)
+          // Fall back to store-based versions (only has active during normal load)
+          const refVersions = multiModelVersionsRef.current.get(parentId);
+          const storeVersions = messages.filter(
+            (m) => m.parent_message_id === parentId && m.role === 'assistant',
+          );
+          const allVersions = refVersions && refVersions.length > storeVersions.length
+            ? refVersions
+            : storeVersions;
+          return (
+            <>
+              {msgMarker}
+              <MultiModelDisplay
+                versions={allVersions}
+                activeMessageId={msg!.id}
+                mode={effectiveDisplayMode as 'side-by-side' | 'stacked'}
+                conversationId={activeConversationId}
+                onSwitchVersion={(pid, mid) => switchMessageVersion(activeConversationId, pid, mid)}
+                streamingMessageId={streamingMessageId}
+                multiModelDoneMessageIds={multiModelDoneMessageIds}
+                getModelDisplayInfo={getModelDisplayInfo}
+                renderContent={(vMsg, isVersionStreaming) => (
+                  <AssistantMarkdown
+                    content={buildAssistantDisplayContent(vMsg, activeMessages)}
+                    isDarkMode={isDarkMode}
+                    isStreaming={isVersionStreaming}
+                    codeBlockDarkTheme={codeBlockDarkTheme}
+                    codeBlockThemes={codeBlockThemes}
+                    codeFontFamily={settings.code_font_family || undefined}
+                  />
+                )}
+              />
+            </>
+          );
+        }
+
         // In multi-model mode we disabled Bubble's built-in loading to keep
         // footer visible, so show inline loading dots when content is empty.
         if (isMultiModelMsg && rawBubbleLoading) {
@@ -2545,6 +2671,7 @@ export function ChatView() {
         );
       },
       header: (() => {
+        if (isNonTabsMultiModel) return null;
         const { modelName, providerName } = getModelDisplayInfo(msg?.model_id, msg?.provider_id);
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -2571,7 +2698,7 @@ export function ChatView() {
       })(),
       footer: msg && activeConversationId ? (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {footerLoading && (
+          {footerLoading && !isNonTabsMultiModel && (
             <div
               style={{
                 display: 'inline-flex',
@@ -2593,6 +2720,9 @@ export function ChatView() {
             assistantCopyText={assistantCopyText}
             getModelDisplayInfo={getModelDisplayInfo}
             isStreaming={isStreaming}
+            displayMode={effectiveDisplayMode}
+            onDisplayModeChange={handleDisplayModeOverride}
+            onMultiModelDetected={handleMultiModelDetected}
           />
         </div>
       ) : footerLoading ? (
@@ -2612,7 +2742,7 @@ export function ChatView() {
         </div>
       ) : null,
     };
-  }, [activeConversation, activeConversationId, agentPendingPermissions, agentToolCalls, aiContentNodesById, assistantByParentId, codeBlockDarkTheme, codeBlockThemes, formatTime, getBubbleVariant, getModelDisplayInfo, isDarkMode, messageById, multiModelParentId, renderConvIconForChat, streaming, streamingMessageId, t, token.colorPrimary, token.colorTextDescription]);
+  }, [activeConversation, activeConversationId, activeMessages, agentPendingPermissions, agentToolCalls, aiContentNodesById, assistantByParentId, codeBlockDarkTheme, codeBlockThemes, displayModeOverrides, formatTime, getBubbleVariant, getModelDisplayInfo, handleDisplayModeOverride, handleMultiModelDetected, isDarkMode, messageById, messages, multiModelDoneMessageIds, multiModelParentId, multiModelResponseParents, renderConvIconForChat, settings, streaming, streamingMessageId, switchMessageVersion, t, token.colorPrimary, token.colorTextDescription]);
 
   const contextClearRole = useCallback((bubbleData: BubbleItemType) => {
     const msgId = String(bubbleData.content ?? '');

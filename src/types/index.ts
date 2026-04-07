@@ -411,6 +411,8 @@ export interface AppSettings {
   /** Chat minimap / navigation overlay */
   chat_minimap_enabled?: boolean;
   chat_minimap_style?: 'faq' | 'sticky';
+  /** Multi-model response display mode */
+  multi_model_display_mode?: 'tabs' | 'side-by-side' | 'stacked';
 }
 
 // === Streaming ===

@@ -353,23 +353,26 @@ export default function BackupCenter() {
               style={{ width: 200 }}
             />
           </Form.Item>
-          <Form.Item name="backupDir" label={t('backup.backupDir')}>
-            <div className="flex flex-col gap-2">
-              <Input
-                readOnly
-                placeholder={effectiveBackupDir}
-                addonAfter={
-                  <FolderOpen
-                    size={14}
-                    style={{ cursor: 'pointer' }}
-                    onClick={handleChooseDir}
-                  />
-                }
-              />
+          <Form.Item
+            name="backupDir"
+            label={t('backup.backupDir')}
+            extra={
               <Text data-testid="backup-effective-dir" type="secondary" style={{ fontSize: 12 }}>
                 {t('backup.effectiveDir')}: {effectiveBackupDir}
               </Text>
-            </div>
+            }
+          >
+            <Input
+              readOnly
+              placeholder={effectiveBackupDir}
+              addonAfter={
+                <FolderOpen
+                  size={14}
+                  style={{ cursor: 'pointer' }}
+                  onClick={handleChooseDir}
+                />
+              }
+            />
           </Form.Item>
         </Form>
       </Modal>

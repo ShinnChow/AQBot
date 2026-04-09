@@ -9,7 +9,7 @@ body = """
 {% for commit in commits %}
 - {% if commit.scope %}**{{ commit.scope }}**: {% endif %}{{ commit.message | split(pat="\n") | first | trim }}\
   {% if commit.remote.pr_number %} (#{{ commit.remote.pr_number }}){% endif %}\
-  (#{{ commit.id | truncate(length=7, end="") }})
+   ([#{{ commit.id | truncate(length=7, end="") }}](https://github.com/{{ env.GITHUB_REPO }}/commit/{{ commit.id }}))
 {%- endfor %}
 {% endfor %}
 """

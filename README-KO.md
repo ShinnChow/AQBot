@@ -8,11 +8,25 @@
 
 ## 스크린샷
 
-![](.github/images/1.png)
-![](.github/images/2.png)
-![](.github/images/3.png)
-![](.github/images/4.png)
-![](.github/images/5.png)
+| 멀티모델 동시 답변 | 서비스 제공업체 및 모델 |
+|:---:|:---:|
+| ![](.github/images/s1.png) | ![](.github/images/s2.png) |
+
+| 지식 베이스 | 메모리 |
+|:---:|:---:|
+| ![](.github/images/s3.png) | ![](.github/images/s4.png) |
+
+| Agent - 질문 | API 게이트웨이 원클릭 접속 |
+|:---:|:---:|
+| ![](.github/images/s5.png) | ![](.github/images/s6.png) |
+
+| 대화 모델 선택 | 대화 탐색 |
+|:---:|:---:|
+| ![](.github/images/s7.png) | ![](.github/images/s8.png) |
+
+| Agent - 권한 승인 | API 게이트웨이 개요 |
+|:---:|:---:|
+| ![](.github/images/s9.png) | ![](.github/images/s10.png) |
 
 ## 기능 목록
 

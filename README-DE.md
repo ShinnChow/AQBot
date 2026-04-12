@@ -8,11 +8,25 @@
 
 ## Screenshots
 
-![](.github/images/1.png)
-![](.github/images/2.png)
-![](.github/images/3.png)
-![](.github/images/4.png)
-![](.github/images/5.png)
+| Multi-Modell-Antworten | Anbieter und Modelle |
+|:---:|:---:|
+| ![](.github/images/s1.png) | ![](.github/images/s2.png) |
+
+| Wissensdatenbank | Gedächtnis |
+|:---:|:---:|
+| ![](.github/images/s3.png) | ![](.github/images/s4.png) |
+
+| Agent - Anfrage | API-Gateway Ein-Klick-Zugang |
+|:---:|:---:|
+| ![](.github/images/s5.png) | ![](.github/images/s6.png) |
+
+| Chat-Modell-Auswahl | Chat-Navigation |
+|:---:|:---:|
+| ![](.github/images/s7.png) | ![](.github/images/s8.png) |
+
+| Agent - Berechtigungsgenehmigung | API-Gateway-Übersicht |
+|:---:|:---:|
+| ![](.github/images/s9.png) | ![](.github/images/s10.png) |
 
 ## Funktionen
 

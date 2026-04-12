@@ -8,11 +8,25 @@
 
 ## スクリーンショット
 
-![](.github/images/1.png)
-![](.github/images/2.png)
-![](.github/images/3.png)
-![](.github/images/4.png)
-![](.github/images/5.png)
+| マルチモデル同時回答 | プロバイダーとモデル |
+|:---:|:---:|
+| ![](.github/images/s1.png) | ![](.github/images/s2.png) |
+
+| ナレッジベース | メモリー |
+|:---:|:---:|
+| ![](.github/images/s3.png) | ![](.github/images/s4.png) |
+
+| Agent - 質問 | APIゲートウェイ ワンクリック接続 |
+|:---:|:---:|
+| ![](.github/images/s5.png) | ![](.github/images/s6.png) |
+
+| チャットモデル選択 | チャットナビゲーション |
+|:---:|:---:|
+| ![](.github/images/s7.png) | ![](.github/images/s8.png) |
+
+| Agent - 権限承認 | APIゲートウェイ概要 |
+|:---:|:---:|
+| ![](.github/images/s9.png) | ![](.github/images/s10.png) |
 
 ## 機能一覧
 

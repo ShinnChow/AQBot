@@ -8,11 +8,25 @@
 
 ## 运行截图
 
-![](.github/images/1.png)
-![](.github/images/2.png)
-![](.github/images/3.png)
-![](.github/images/4.png)
-![](.github/images/5.png)
+| 多模型同答 | 服务商与模型 |
+|:---:|:---:|
+| ![](.github/images/s1.png) | ![](.github/images/s2.png) |
+
+| 知识库 | 记忆 |
+|:---:|:---:|
+| ![](.github/images/s3.png) | ![](.github/images/s4.png) |
+
+| Agent-询问 | API网关一键接入 |
+|:---:|:---:|
+| ![](.github/images/s5.png) | ![](.github/images/s6.png) |
+
+| 对话模型选择 | 对话导航 |
+|:---:|:---:|
+| ![](.github/images/s7.png) | ![](.github/images/s8.png) |
+
+| Agent-权限审批 | API网关概览 |
+|:---:|:---:|
+| ![](.github/images/s9.png) | ![](.github/images/s10.png) |
 
 ## 功能特性
 

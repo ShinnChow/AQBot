@@ -8,11 +8,25 @@
 
 ## Captures d'écran
 
-![](.github/images/1.png)
-![](.github/images/2.png)
-![](.github/images/3.png)
-![](.github/images/4.png)
-![](.github/images/5.png)
+| Réponse multi-modèles | Fournisseurs et modèles |
+|:---:|:---:|
+| ![](.github/images/s1.png) | ![](.github/images/s2.png) |
+
+| Base de connaissances | Mémoire |
+|:---:|:---:|
+| ![](.github/images/s3.png) | ![](.github/images/s4.png) |
+
+| Agent - Demande | Passerelle API en un clic |
+|:---:|:---:|
+| ![](.github/images/s5.png) | ![](.github/images/s6.png) |
+
+| Sélection du modèle de chat | Navigation des chats |
+|:---:|:---:|
+| ![](.github/images/s7.png) | ![](.github/images/s8.png) |
+
+| Agent - Approbation des permissions | Aperçu de la passerelle API |
+|:---:|:---:|
+| ![](.github/images/s9.png) | ![](.github/images/s10.png) |
 
 ## Fonctionnalités
 

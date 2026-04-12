@@ -8,11 +8,25 @@
 
 ## स्क्रीनशॉट
 
-![](.github/images/1.png)
-![](.github/images/2.png)
-![](.github/images/3.png)
-![](.github/images/4.png)
-![](.github/images/5.png)
+| मल्टी-मॉडल उत्तर | प्रदाता और मॉडल |
+|:---:|:---:|
+| ![](.github/images/s1.png) | ![](.github/images/s2.png) |
+
+| ज्ञान आधार | स्मृति |
+|:---:|:---:|
+| ![](.github/images/s3.png) | ![](.github/images/s4.png) |
+
+| Agent - पूछताछ | API गेटवे वन-क्लिक एक्सेस |
+|:---:|:---:|
+| ![](.github/images/s5.png) | ![](.github/images/s6.png) |
+
+| चैट मॉडल चयन | चैट नेविगेशन |
+|:---:|:---:|
+| ![](.github/images/s7.png) | ![](.github/images/s8.png) |
+
+| Agent - अनुमति अनुमोदन | API गेटवे अवलोकन |
+|:---:|:---:|
+| ![](.github/images/s9.png) | ![](.github/images/s10.png) |
 
 ## विशेषताएँ
 

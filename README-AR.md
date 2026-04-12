@@ -8,11 +8,25 @@
 
 ## لقطات الشاشة
 
-![](.github/images/1.png)
-![](.github/images/2.png)
-![](.github/images/3.png)
-![](.github/images/4.png)
-![](.github/images/5.png)
+| إجابة متعددة النماذج | مزودو الخدمة والنماذج |
+|:---:|:---:|
+| ![](.github/images/s1.png) | ![](.github/images/s2.png) |
+
+| قاعدة المعرفة | الذاكرة |
+|:---:|:---:|
+| ![](.github/images/s3.png) | ![](.github/images/s4.png) |
+
+| Agent - استفسار | بوابة API بنقرة واحدة |
+|:---:|:---:|
+| ![](.github/images/s5.png) | ![](.github/images/s6.png) |
+
+| اختيار نموذج المحادثة | تنقل المحادثات |
+|:---:|:---:|
+| ![](.github/images/s7.png) | ![](.github/images/s8.png) |
+
+| Agent - الموافقة على الصلاحيات | نظرة عامة على بوابة API |
+|:---:|:---:|
+| ![](.github/images/s9.png) | ![](.github/images/s10.png) |
 
 ## الميزات
 

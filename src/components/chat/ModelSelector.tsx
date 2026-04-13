@@ -4,6 +4,7 @@ import { Search, Settings, Pin, PinOff, ChevronDown, ChevronRight, ChevronsDownU
 import { ModelIcon } from '@lobehub/icons';
 import { useTranslation } from 'react-i18next';
 import { useProviderStore, useConversationStore, useSettingsStore, useUIStore } from '@/stores';
+import { SmartProviderIcon } from '@/lib/providerIcons';
 import { getShortcutBinding, formatShortcutForDisplay } from '@/lib/shortcuts';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { getVisibleModelCapabilities } from '@/lib/modelCapabilities';
@@ -593,7 +594,7 @@ export function ModelSelector({ style, onSelect, overrideCurrentModel, children,
                       onClick={() => toggleGroupExpand(row.provider.id)}
                     >
                       {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                      <ModelIcon model={row.provider.models[0]?.model_id ?? row.provider.name} size={20} type="avatar" />
+                      <SmartProviderIcon provider={row.provider} size={20} type="avatar" />
                       <span style={{ fontWeight: 600, fontSize: 13 }}>{row.provider.name}</span>
                       <Tag style={{ fontSize: 11, lineHeight: '18px', padding: '0 6px', margin: 0 }}>{row.provider.models.length}</Tag>
                       <div style={{ flex: 1 }} />

@@ -2,6 +2,7 @@ import { useMemo, useCallback } from 'react';
 import { Select, theme } from 'antd';
 import { ModelIcon } from '@lobehub/icons';
 import { useProviderStore } from '@/stores';
+import { SmartProviderIcon } from '@/lib/providerIcons';
 
 /** Parse a combined `providerId::modelId` value. */
 export function parseModelValue(value: string | undefined) {
@@ -20,7 +21,7 @@ export function useGroupedModelOptions() {
       .map((p) => ({
         label: (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <ModelIcon model={p.name} size={16} type="avatar" />
+            <SmartProviderIcon provider={p} size={16} type="avatar" />
             {p.name}
           </span>
         ),

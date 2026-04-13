@@ -671,16 +671,18 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
               <Title level={4} className="!mb-0">
                 {provider.name}
               </Title>
-              <Button
-                type="text"
-                size="small"
-                icon={<SquarePen size={14} />}
-                onClick={() => {
-                  setEditProviderName(provider.name);
-                  setEditProviderType(provider.provider_type);
-                  setProviderEditModalOpen(true);
-                }}
-              />
+              {!provider.builtin_id && (
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<SquarePen size={14} />}
+                  onClick={() => {
+                    setEditProviderName(provider.name);
+                    setEditProviderType(provider.provider_type);
+                    setProviderEditModalOpen(true);
+                  }}
+                />
+              )}
             </div>
           </div>
         </div>

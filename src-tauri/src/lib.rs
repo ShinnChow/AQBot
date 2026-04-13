@@ -35,6 +35,9 @@ mod paths;
 mod tray;
 mod window_state;
 
+#[cfg(target_os = "windows")]
+mod windows_utils;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
@@ -44,6 +47,27 @@ pub fn run() {
                 .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
         )
         .init();
+
+    // On Windows, verify that WebView2 Runtime is installed before proceeding.
+    // Without WebView2 the app window would start hidden and never become visible
+    // because the frontend JS (which calls `show()`) cannot load.
+    #[cfg(target_os = "windows")]
+    {
+        if !windows_utils::is_webview2_installed() {
+            tracing::error!("WebView2 Runtime not found — cannot start AQBot");
+            let user_ok = windows_utils::show_warning_ok_cancel(
+                "AQBot",
+                "未检测到 Microsoft Edge WebView2 Runtime，AQBot 无法启动。\n\n\
+                 点击「确定」打开下载页面进行安装，安装完成后重新启动 AQBot。",
+            );
+            if user_ok {
+                let _ = std::process::Command::new("cmd")
+                    .args(["/c", "start", "https://developer.microsoft.com/en-us/microsoft-edge/webview2/?form=MA13LH#download"])
+                    .spawn();
+            }
+            std::process::exit(1);
+        }
+    }
 
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
@@ -388,7 +412,7 @@ pub fn run() {
                         e
                     );
                     tracing::error!("{}", msg);
-                    // Show native dialog on macOS so user sees the error
+                    // Show native dialog so user sees the error
                     #[cfg(target_os = "macos")]
                     {
                         let escaped = msg.replace('\"', "\\\"").replace('\n', "\\n");
@@ -398,6 +422,10 @@ pub fn run() {
                                 escaped
                             )])
                             .output();
+                    }
+                    #[cfg(target_os = "windows")]
+                    {
+                        windows_utils::show_error_dialog("AQBot", &msg);
                     }
                     std::process::exit(1);
                 }

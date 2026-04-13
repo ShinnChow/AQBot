@@ -840,7 +840,22 @@
     "modelGroup": "Modellgruppe",
     "modelGroupAuto": "Leer lassen, um Gruppen automatisch nach Modell-ID zu generieren",
     "modelIdRequired": "Bitte zuerst die Modell-ID ausfüllen",
-    "openSettings": "Einstellungen"
+    "openSettings": "Einstellungen",
+    "batchEditMode": "Stapelbearbeitung",
+    "batchSelected": "{{count}} Modelle ausgewählt",
+    "batchEnable": "Aktivieren",
+    "batchDisable": "Deaktivieren",
+    "batchEdit": "Einstellungen",
+    "batchDeleteBtn": "Löschen",
+    "batchDeleteConfirm": "{{count}} ausgewählte Modelle löschen?",
+    "batchExit": "Stapelmodus beenden",
+    "batchEnableSuccess": "{{count}} Modelle aktiviert",
+    "batchDisableSuccess": "{{count}} Modelle deaktiviert",
+    "batchDeleteSuccess": "{{count}} Modelle gelöscht",
+    "batchEditTitle": "Stapelbearbeitung ({{count}} Modelle)",
+    "batchEditHint": "Einstellungen mit aktiviertem Schalter werden auf alle ausgewählten Modelle angewendet",
+    "batchApply": "Anwenden",
+    "batchEditSuccess": "Einstellungen für {{count}} Modelle aktualisiert"
   },
   "backup": {
     "title": "Sicherungscenter",

@@ -840,7 +840,22 @@
     "modelGroup": "模型分組",
     "modelGroupAuto": "留空時將依模型標識自動產生分組",
     "modelIdRequired": "請先填寫模型標識",
-    "openSettings": "設定"
+    "openSettings": "設定",
+    "batchEditMode": "批量編輯",
+    "batchSelected": "已選 {{count}} 個模型",
+    "batchEnable": "批量啟用",
+    "batchDisable": "批量禁用",
+    "batchEdit": "批量設置",
+    "batchDeleteBtn": "批量刪除",
+    "batchDeleteConfirm": "確定刪除選中的 {{count}} 個模型？",
+    "batchExit": "退出多選",
+    "batchEnableSuccess": "已啟用 {{count}} 個模型",
+    "batchDisableSuccess": "已禁用 {{count}} 個模型",
+    "batchDeleteSuccess": "已刪除 {{count}} 個模型",
+    "batchEditTitle": "批量編輯 ({{count}} 個模型)",
+    "batchEditHint": "開啟右側開關的選項將被應用到所有選中的模型",
+    "batchApply": "應用",
+    "batchEditSuccess": "已更新 {{count}} 個模型的設置"
   },
   "backup": {
     "title": "備份中心",

@@ -840,7 +840,22 @@
     "modelGroup": "Группа моделей",
     "modelGroupAuto": "Оставьте пустым для автоматической группировки по ID модели",
     "modelIdRequired": "Сначала заполните ID модели",
-    "openSettings": "Настройки"
+    "openSettings": "Настройки",
+    "batchEditMode": "Пакетное редактирование",
+    "batchSelected": "{{count}} моделей выбрано",
+    "batchEnable": "Включить",
+    "batchDisable": "Отключить",
+    "batchEdit": "Настройки",
+    "batchDeleteBtn": "Удалить",
+    "batchDeleteConfirm": "Удалить {{count}} выбранных моделей?",
+    "batchExit": "Выйти из пакетного режима",
+    "batchEnableSuccess": "{{count}} моделей включено",
+    "batchDisableSuccess": "{{count}} моделей отключено",
+    "batchDeleteSuccess": "{{count}} моделей удалено",
+    "batchEditTitle": "Пакетное редактирование ({{count}} моделей)",
+    "batchEditHint": "Настройки с включённым переключателем будут применены ко всем выбранным моделям",
+    "batchApply": "Применить",
+    "batchEditSuccess": "Обновлены настройки {{count}} моделей"
   },
   "backup": {
     "title": "Центр резервного копирования",

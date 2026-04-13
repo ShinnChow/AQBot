@@ -840,7 +840,22 @@
     "modelGroup": "मॉडल समूह",
     "modelGroupAuto": "मॉडल ID के आधार पर स्वचालित समूह बनाने के लिए खाली छोड़ें",
     "modelIdRequired": "कृपया पहले मॉडल ID भरें",
-    "openSettings": "सेटिंग्स"
+    "openSettings": "सेटिंग्स",
+    "batchEditMode": "बैच संपादन",
+    "batchSelected": "{{count}} मॉडल चयनित",
+    "batchEnable": "सक्षम करें",
+    "batchDisable": "अक्षम करें",
+    "batchEdit": "सेटिंग्स",
+    "batchDeleteBtn": "हटाएं",
+    "batchDeleteConfirm": "{{count}} चयनित मॉडल हटाएं?",
+    "batchExit": "बैच मोड से बाहर निकलें",
+    "batchEnableSuccess": "{{count}} मॉडल सक्षम",
+    "batchDisableSuccess": "{{count}} मॉडल अक्षम",
+    "batchDeleteSuccess": "{{count}} मॉडल हटाए गए",
+    "batchEditTitle": "बैच संपादन ({{count}} मॉडल)",
+    "batchEditHint": "चालू स्विच वाली सेटिंग्स सभी चयनित मॉडल पर लागू होंगी",
+    "batchApply": "लागू करें",
+    "batchEditSuccess": "{{count}} मॉडल की सेटिंग्स अपडेट की गईं"
   },
   "backup": {
     "title": "बैकअप केंद्र",

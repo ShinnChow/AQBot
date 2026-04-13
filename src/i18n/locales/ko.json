@@ -840,7 +840,22 @@
     "modelGroup": "모델 그룹",
     "modelGroupAuto": "비워두면 모델 ID에 따라 그룹이 자동 생성됩니다",
     "modelIdRequired": "먼저 모델 ID를 입력하세요",
-    "openSettings": "설정"
+    "openSettings": "설정",
+    "batchEditMode": "일괄 편집",
+    "batchSelected": "{{count}}개 모델 선택",
+    "batchEnable": "일괄 활성화",
+    "batchDisable": "일괄 비활성화",
+    "batchEdit": "일괄 설정",
+    "batchDeleteBtn": "일괄 삭제",
+    "batchDeleteConfirm": "선택한 {{count}}개 모델을 삭제하시겠습니까?",
+    "batchExit": "일괄 모드 종료",
+    "batchEnableSuccess": "{{count}}개 모델 활성화됨",
+    "batchDisableSuccess": "{{count}}개 모델 비활성화됨",
+    "batchDeleteSuccess": "{{count}}개 모델 삭제됨",
+    "batchEditTitle": "일괄 편집 ({{count}}개 모델)",
+    "batchEditHint": "오른쪽 스위치를 켠 항목이 선택한 모델에 적용됩니다",
+    "batchApply": "적용",
+    "batchEditSuccess": "{{count}}개 모델 설정 업데이트됨"
   },
   "backup": {
     "title": "백업 센터",

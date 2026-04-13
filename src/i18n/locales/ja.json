@@ -840,7 +840,22 @@
     "modelGroup": "モデルグループ",
     "modelGroupAuto": "空白にするとモデルIDに基づいてグループが自動生成されます",
     "modelIdRequired": "最初にモデルIDを入力してください",
-    "openSettings": "設定"
+    "openSettings": "設定",
+    "batchEditMode": "バッチ編集",
+    "batchSelected": "{{count}} 件のモデルを選択",
+    "batchEnable": "一括有効化",
+    "batchDisable": "一括無効化",
+    "batchEdit": "バッチ設定",
+    "batchDeleteBtn": "一括削除",
+    "batchDeleteConfirm": "選択した {{count}} 件のモデルを削除しますか？",
+    "batchExit": "バッチ終了",
+    "batchEnableSuccess": "{{count}} 件のモデルを有効化しました",
+    "batchDisableSuccess": "{{count}} 件のモデルを無効化しました",
+    "batchDeleteSuccess": "{{count}} 件のモデルを削除しました",
+    "batchEditTitle": "バッチ編集 ({{count}} 件)",
+    "batchEditHint": "右のスイッチをオンにした項目が選択したモデルに適用されます",
+    "batchApply": "適用",
+    "batchEditSuccess": "{{count}} 件のモデル設定を更新しました"
   },
   "backup": {
     "title": "バックアップセンター",

@@ -23,7 +23,7 @@ import {
   App,
   theme,
 } from 'antd';
-import { Maximize2, Mic, Lightbulb, Database, Trash2, Eye, Heart, Key, MessageSquare, Plus, RefreshCw, Search, Settings, Minimize2, Wrench, Undo2, CircleHelp, ChevronRight, ChevronDown, Expand, Shrink, SquarePen } from 'lucide-react';
+import { Maximize2, Mic, Lightbulb, Database, Trash2, Eye, Heart, Key, MessageSquare, Plus, RefreshCw, Search, Settings, Minimize2, Wrench, Undo2, CircleHelp, ChevronRight, ChevronDown, Expand, Shrink, SquarePen, ListChecks, X, Power, PowerOff, Pencil } from 'lucide-react';
 import { ModelIcon } from '@lobehub/icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -209,6 +209,34 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
   const [providerEditModalOpen, setProviderEditModalOpen] = useState(false);
   const [editProviderName, setEditProviderName] = useState('');
   const [editProviderType, setEditProviderType] = useState<ProviderType>('openai');
+
+  // Batch editing state
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchSelected, setBatchSelected] = useState<Set<string>>(new Set());
+  const [batchEditModalOpen, setBatchEditModalOpen] = useState(false);
+  // Batch edit fields — each has a value + an "enabled" flag
+  const [batchModelType, setBatchModelType] = useState<ModelType>('Chat');
+  const [batchModelTypeEnabled, setBatchModelTypeEnabled] = useState(false);
+  const [batchCapabilities, setBatchCapabilities] = useState<ModelCapability[]>(['TextChat']);
+  const [batchCapabilitiesEnabled, setBatchCapabilitiesEnabled] = useState(false);
+  const [batchMaxTokens, setBatchMaxTokens] = useState<number>(128000);
+  const [batchMaxTokensEnabled, setBatchMaxTokensEnabled] = useState(false);
+  const [batchTemperature, setBatchTemperature] = useState<number>(0.7);
+  const [batchTemperatureEnabled, setBatchTemperatureEnabled] = useState(false);
+  const [batchTopP, setBatchTopP] = useState<number>(1.0);
+  const [batchTopPEnabled, setBatchTopPEnabled] = useState(false);
+  const [batchMaxTokensParam, setBatchMaxTokensParam] = useState<number>(4096);
+  const [batchMaxTokensParamEnabled, setBatchMaxTokensParamEnabled] = useState(false);
+  const [batchFreqPenalty, setBatchFreqPenalty] = useState<number>(0.0);
+  const [batchFreqPenaltyEnabled, setBatchFreqPenaltyEnabled] = useState(false);
+  const [batchUseMaxCompletionTokens, setBatchUseMaxCompletionTokens] = useState(false);
+  const [batchUseMaxCompletionTokensEnabled, setBatchUseMaxCompletionTokensEnabled] = useState(false);
+  const [batchNoSystemRole, setBatchNoSystemRole] = useState(false);
+  const [batchNoSystemRoleEnabled, setBatchNoSystemRoleEnabled] = useState(false);
+  const [batchForceMaxTokens, setBatchForceMaxTokens] = useState(false);
+  const [batchForceMaxTokensEnabled, setBatchForceMaxTokensEnabled] = useState(false);
+  const [batchThinkingParamStyle, setBatchThinkingParamStyle] = useState<string>('reasoning_effort');
+  const [batchThinkingParamStyleEnabled, setBatchThinkingParamStyleEnabled] = useState(false);
 
   const pickerGroups = useMemo(() => {
     const filtered = pickerModels.filter((m) =>
@@ -574,6 +602,140 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
     [providerId, updateProvider],
   );
 
+  // === Batch editing handlers ===
+  const handleEnterBatchMode = useCallback(() => {
+    setBatchMode(true);
+    setBatchSelected(new Set());
+  }, []);
+
+  const handleExitBatchMode = useCallback(() => {
+    setBatchMode(false);
+    setBatchSelected(new Set());
+  }, []);
+
+  const handleBatchToggleModel = useCallback((modelId: string) => {
+    setBatchSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(modelId)) next.delete(modelId);
+      else next.add(modelId);
+      return next;
+    });
+  }, []);
+
+  const handleBatchToggleGroup = useCallback((groupModels: Model[]) => {
+    setBatchSelected((prev) => {
+      const next = new Set(prev);
+      const allSelected = groupModels.every((m) => prev.has(m.model_id));
+      if (allSelected) {
+        for (const m of groupModels) next.delete(m.model_id);
+      } else {
+        for (const m of groupModels) next.add(m.model_id);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleBatchEnable = useCallback(async () => {
+    if (batchSelected.size === 0) return;
+    const updatedModels = (provider?.models ?? []).map((m) =>
+      batchSelected.has(m.model_id) ? { ...m, enabled: true } : m,
+    );
+    try {
+      await saveModels(providerId, updatedModels);
+      message.success(t('settings.batchEnableSuccess', { count: batchSelected.size }));
+    } catch {
+      message.error(t('error.saveFailed'));
+    }
+  }, [batchSelected, provider?.models, providerId, saveModels, message, t]);
+
+  const handleBatchDisable = useCallback(async () => {
+    if (batchSelected.size === 0) return;
+    const updatedModels = (provider?.models ?? []).map((m) =>
+      batchSelected.has(m.model_id) ? { ...m, enabled: false } : m,
+    );
+    try {
+      await saveModels(providerId, updatedModels);
+      message.success(t('settings.batchDisableSuccess', { count: batchSelected.size }));
+    } catch {
+      message.error(t('error.saveFailed'));
+    }
+  }, [batchSelected, provider?.models, providerId, saveModels, message, t]);
+
+  const handleBatchDelete = useCallback(async () => {
+    if (batchSelected.size === 0) return;
+    const updatedModels = (provider?.models ?? []).filter((m) => !batchSelected.has(m.model_id));
+    try {
+      await saveModels(providerId, updatedModels);
+      message.success(t('settings.batchDeleteSuccess', { count: batchSelected.size }));
+      setBatchSelected(new Set());
+    } catch {
+      message.error(t('error.saveFailed'));
+    }
+  }, [batchSelected, provider?.models, providerId, saveModels, message, t]);
+
+  const handleOpenBatchEdit = useCallback(() => {
+    // Reset all batch edit fields and disable all toggles
+    setBatchModelType('Chat');
+    setBatchModelTypeEnabled(false);
+    setBatchCapabilities(['TextChat']);
+    setBatchCapabilitiesEnabled(false);
+    setBatchMaxTokens(128000);
+    setBatchMaxTokensEnabled(false);
+    setBatchTemperature(0.7);
+    setBatchTemperatureEnabled(false);
+    setBatchTopP(1.0);
+    setBatchTopPEnabled(false);
+    setBatchMaxTokensParam(4096);
+    setBatchMaxTokensParamEnabled(false);
+    setBatchFreqPenalty(0.0);
+    setBatchFreqPenaltyEnabled(false);
+    setBatchUseMaxCompletionTokens(false);
+    setBatchUseMaxCompletionTokensEnabled(false);
+    setBatchNoSystemRole(false);
+    setBatchNoSystemRoleEnabled(false);
+    setBatchForceMaxTokens(false);
+    setBatchForceMaxTokensEnabled(false);
+    setBatchThinkingParamStyle('reasoning_effort');
+    setBatchThinkingParamStyleEnabled(false);
+    setBatchEditModalOpen(true);
+  }, []);
+
+  const handleBatchEditSave = useCallback(async () => {
+    if (batchSelected.size === 0) return;
+    const updatedModels = (provider?.models ?? []).map((m) => {
+      if (!batchSelected.has(m.model_id)) return m;
+      let updated = { ...m };
+      if (batchModelTypeEnabled) {
+        updated.model_type = batchModelType;
+        updated.capabilities = sanitizeModelCapabilities(batchModelType, batchCapabilitiesEnabled ? batchCapabilities : updated.capabilities);
+      }
+      if (batchCapabilitiesEnabled && !batchModelTypeEnabled) {
+        updated.capabilities = sanitizeModelCapabilities(updated.model_type || 'Chat', batchCapabilities);
+      }
+      if (batchMaxTokensEnabled) {
+        updated.max_tokens = batchMaxTokens;
+      }
+      const overrides: ModelParamOverrides = { ...(updated.param_overrides ?? {}) };
+      if (batchTemperatureEnabled) overrides.temperature = batchTemperature;
+      if (batchTopPEnabled) overrides.top_p = batchTopP;
+      if (batchMaxTokensParamEnabled) overrides.max_tokens = batchMaxTokensParam;
+      if (batchFreqPenaltyEnabled) overrides.frequency_penalty = batchFreqPenalty;
+      if (batchUseMaxCompletionTokensEnabled) overrides.use_max_completion_tokens = batchUseMaxCompletionTokens;
+      if (batchNoSystemRoleEnabled) overrides.no_system_role = batchNoSystemRole;
+      if (batchForceMaxTokensEnabled) overrides.force_max_tokens = batchForceMaxTokens;
+      if (batchThinkingParamStyleEnabled) overrides.thinking_param_style = batchThinkingParamStyle === 'reasoning_effort' ? undefined : batchThinkingParamStyle;
+      updated.param_overrides = overrides;
+      return updated;
+    });
+    try {
+      await saveModels(providerId, updatedModels);
+      message.success(t('settings.batchEditSuccess', { count: batchSelected.size }));
+      setBatchEditModalOpen(false);
+    } catch {
+      message.error(t('error.saveFailed'));
+    }
+  }, [batchSelected, provider?.models, providerId, saveModels, message, t, batchModelType, batchModelTypeEnabled, batchCapabilities, batchCapabilitiesEnabled, batchMaxTokens, batchMaxTokensEnabled, batchTemperature, batchTemperatureEnabled, batchTopP, batchTopPEnabled, batchMaxTokensParam, batchMaxTokensParamEnabled, batchFreqPenalty, batchFreqPenaltyEnabled, batchUseMaxCompletionTokens, batchUseMaxCompletionTokensEnabled, batchNoSystemRole, batchNoSystemRoleEnabled, batchForceMaxTokens, batchForceMaxTokensEnabled, batchThinkingParamStyle, batchThinkingParamStyleEnabled]);
+
   const groupedModels = useMemo(() => {
     const groups: Record<string, Model[]> = {};
     for (const model of filteredModels) {
@@ -591,7 +753,20 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
     [groupKeys],
   );
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
-  useEffect(() => { setExpandedGroups(groupKeys); }, [groupKeys]);
+  const prevGroupKeysRef = useRef<string[]>([]);
+  useEffect(() => {
+    const prev = prevGroupKeysRef.current;
+    const added = groupKeys.filter((k) => !prev.includes(k));
+    if (prev.length === 0) {
+      // First render: expand all
+      setExpandedGroups(groupKeys);
+    } else if (added.length > 0) {
+      // New groups appeared: expand only the new ones
+      setExpandedGroups((cur) => [...cur, ...added]);
+    }
+    // When groups are removed (model deleted), don't touch expandedGroups
+    prevGroupKeysRef.current = groupKeys;
+  }, [groupKeys]);
   const allExpanded = expandedGroups.length >= groupKeys.length;
   const [modelListFullscreen, setModelListFullscreen] = useState(false);
 
@@ -704,7 +879,7 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
               cancelText={t('common.cancel')}
               okButtonProps={{ danger: true }}
             >
-              <Button danger icon={<Trash2 size={16} />} />
+              <Button type="text" size="small" danger icon={<Trash2 size={14} />} />
             </Popconfirm>
           )}
         </Space>
@@ -850,13 +1025,50 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
       <Card
         style={modelListFullscreen ? { position: 'fixed', top: 47, left: 10, right: 10, bottom: 10, zIndex: 1000, overflow: 'auto', display: 'flex', flexDirection: 'column' } : undefined}
         title={
-          <Space>
-            <span>{t('settings.models')}</span>
-            <Tag>{filteredModels.length}</Tag>
-          </Space>
+          batchMode ? (
+            <Space>
+              <Text type="secondary" style={{ fontSize: 13 }}>
+                {t('settings.batchSelected', { count: batchSelected.size })}
+              </Text>
+            </Space>
+          ) : (
+            <Space>
+              <span>{t('settings.models')}</span>
+              <Tag>{filteredModels.length}</Tag>
+            </Space>
+          )
         }
         size="small"
         extra={
+          batchMode ? (
+            <Space size={4}>
+              <Tooltip title={t('settings.batchEnable')}>
+                <Button type="text" size="small" icon={<Power size={14} />} disabled={batchSelected.size === 0} onClick={handleBatchEnable} />
+              </Tooltip>
+              <Tooltip title={t('settings.batchDisable')}>
+                <Button type="text" size="small" icon={<PowerOff size={14} />} disabled={batchSelected.size === 0} onClick={handleBatchDisable} />
+              </Tooltip>
+              <Tooltip title={t('settings.batchEdit')}>
+                <Button type="text" size="small" icon={<Pencil size={14} />} disabled={batchSelected.size === 0} onClick={handleOpenBatchEdit} />
+              </Tooltip>
+              <Popconfirm
+                title={t('settings.batchDeleteConfirm', { count: batchSelected.size })}
+                onConfirm={handleBatchDelete}
+                okText={t('common.confirm')}
+                cancelText={t('common.cancel')}
+                okButtonProps={{ danger: true }}
+                disabled={batchSelected.size === 0}
+              >
+                <Tooltip title={t('settings.batchDeleteBtn')}>
+                  <Button type="text" size="small" danger icon={<Trash2 size={14} />} disabled={batchSelected.size === 0} />
+                </Tooltip>
+              </Popconfirm>
+              <Divider type="vertical" style={{ margin: '0 2px' }} />
+              <Tooltip title={t('settings.batchExit')}>
+                <Button type="text" size="small" icon={<X size={14} />} onClick={handleExitBatchMode} />
+              </Tooltip>
+            </Space>
+          ) : (
           <Space size={4}>
             <Tooltip title={t('settings.searchModels')}>
               <Button
@@ -868,6 +1080,14 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                   if (showModelSearch) setModelSearch('');
                 }}
                 style={{ color: showModelSearch ? token.colorPrimary : undefined }}
+              />
+            </Tooltip>
+            <Tooltip title={t('settings.batchEditMode')}>
+              <Button
+                type="text"
+                size="small"
+                icon={<ListChecks size={14} />}
+                onClick={handleEnterBatchMode}
               />
             </Tooltip>
              <Tooltip title={t('settings.refreshModels')}>
@@ -930,6 +1150,7 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
               />
             </Tooltip>
           </Space>
+          )
         }
       >
         {showModelSearch && (
@@ -966,6 +1187,8 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                 const allEnabled = models.every((m) => m.enabled);
                 const someEnabled = models.some((m) => m.enabled);
                 const isExpanded = expandedGroups.includes(group);
+                const batchAllSelected = batchMode && models.every((m) => batchSelected.has(m.model_id));
+                const batchSomeSelected = batchMode && models.some((m) => batchSelected.has(m.model_id));
                 return (
                   <div
                     key={`g-${group}`}
@@ -977,55 +1200,73 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                       className="flex items-center gap-2 px-2 py-1.5 rounded-md"
                       style={{ cursor: 'pointer', userSelect: 'none', background: 'var(--ant-color-fill-quaternary, rgba(0,0,0,0.02))' }}
                       onClick={() => {
-                        if (isExpanded) setExpandedGroups((prev) => prev.filter((k) => k !== group));
-                        else setExpandedGroups((prev) => [...prev, group]);
+                        if (batchMode) {
+                          handleBatchToggleGroup(models);
+                        } else {
+                          if (isExpanded) setExpandedGroups((prev) => prev.filter((k) => k !== group));
+                          else setExpandedGroups((prev) => [...prev, group]);
+                        }
                       }}
                     >
+                      {batchMode && (
+                        <Checkbox
+                          checked={batchAllSelected}
+                          indeterminate={batchSomeSelected && !batchAllSelected}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={() => handleBatchToggleGroup(models)}
+                        />
+                      )}
                       {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       <ModelIcon model={models[0]?.model_id ?? group} size={20} type="avatar" />
                       <Text style={{ fontWeight: 600 }}>{group}</Text>
                       <Tag style={{ fontSize: 11, lineHeight: '18px', padding: '0 6px', margin: 0 }}>{models.length}</Tag>
                       <div style={{ flex: 1 }} />
                       <Space size="small" onClick={(e) => e.stopPropagation()}>
-                        <Tooltip title={t('settings.addModelToGroup')}>
-                          <Button size="small" type="text" icon={<Plus size={14} />} onClick={() => handleOpenAddModel(group)} />
-                        </Tooltip>
-                        <Tooltip title={t('settings.testGroup')}>
-                          <Button
-                            size="small"
-                            type="text"
-                            icon={<Heart size={14} />}
-                            loading={models.some((m) => testingModels.has(m.model_id))}
-                            onClick={() => {
-                              for (const m of models) {
-                                handleTestInlineModel(m.model_id);
-                              }
-                            }}
-                          />
-                        </Tooltip>
+                        {!batchMode && (
+                          <Tooltip title={t('settings.addModelToGroup')}>
+                            <Button size="small" type="text" icon={<Plus size={14} />} onClick={() => handleOpenAddModel(group)} />
+                          </Tooltip>
+                        )}
+                        {!batchMode && (
+                          <Tooltip title={t('settings.testGroup')}>
+                            <Button
+                              size="small"
+                              type="text"
+                              icon={<Heart size={14} />}
+                              loading={models.some((m) => testingModels.has(m.model_id))}
+                              onClick={() => {
+                                for (const m of models) {
+                                  handleTestInlineModel(m.model_id);
+                                }
+                              }}
+                            />
+                          </Tooltip>
+                        )}
                         <Switch
                           size="small"
                           checked={someEnabled}
                           style={someEnabled && !allEnabled ? { backgroundColor: token.colorWarning } : undefined}
                           onChange={(checked) => { models.forEach((m) => toggleModel(providerId, m.model_id, checked)); }}
                         />
-                        <Popconfirm
-                          title={t('settings.deleteGroupConfirm')}
-                          onConfirm={async () => {
-                            const modelIds = new Set(models.map((m) => m.model_id));
-                            const updatedModels = (provider?.models ?? []).filter((m) => !modelIds.has(m.model_id));
-                            try {
-                              await saveModels(providerId, updatedModels);
-                            } catch {
-                              message.error(t('error.saveFailed'));
-                            }
-                          }}
-                          okText={t('common.confirm')}
-                          cancelText={t('common.cancel')}
-                          okButtonProps={{ danger: true }}
-                        >
-                          <Button size="small" type="text" danger icon={<Trash2 size={14} />} />
-                        </Popconfirm>
+                        {!batchMode && (
+                          <Popconfirm
+                            title={t('settings.deleteGroupConfirm')}
+                            onConfirm={async () => {
+                              const modelIds = new Set(models.map((m) => m.model_id));
+                              const updatedModels = (provider?.models ?? []).filter((m) => !modelIds.has(m.model_id));
+                              try {
+                                await saveModels(providerId, updatedModels);
+                              } catch {
+                                message.error(t('error.saveFailed'));
+                              }
+                            }}
+                            okText={t('common.confirm')}
+                            cancelText={t('common.cancel')}
+                            okButtonProps={{ danger: true }}
+                          >
+                            <Button size="small" type="text" danger icon={<Trash2 size={14} />} />
+                          </Popconfirm>
+                        )}
                       </Space>
                     </div>
                   </div>
@@ -1042,8 +1283,16 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                 >
                   <div
                     className="flex items-center gap-2 px-2 py-1.5 rounded-md"
-                    style={{ opacity: model.enabled ? 1 : 0.45, paddingLeft: 36 }}
+                    style={{ opacity: model.enabled ? 1 : (batchMode ? 0.7 : 0.45), paddingLeft: batchMode ? 24 : 36, cursor: batchMode ? 'pointer' : undefined }}
+                    onClick={batchMode ? () => handleBatchToggleModel(model.model_id) : undefined}
                   >
+                    {batchMode && (
+                      <Checkbox
+                        checked={batchSelected.has(model.model_id)}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => handleBatchToggleModel(model.model_id)}
+                      />
+                    )}
                     {iconOverrides[model.model_id]
                       ? <DynamicLobeIcon iconId={iconOverrides[model.model_id]} size={20} type="avatar" />
                       : <ModelIcon model={model.model_id} size={20} type="avatar" />
@@ -1077,8 +1326,8 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                       </div>
                     </div>
                     <div className="flex items-center gap-1" style={{ flexShrink: 0 }}>
-                      {testingModels.has(model.model_id) && <Spin size="small" />}
-                      {!testingModels.has(model.model_id) && testResults.has(model.model_id) && (() => {
+                      {!batchMode && testingModels.has(model.model_id) && <Spin size="small" />}
+                      {!batchMode && !testingModels.has(model.model_id) && testResults.has(model.model_id) && (() => {
                         const result = testResults.get(model.model_id)!;
                         if (result.latencyMs != null) {
                           return <span style={{ fontSize: 11, color: token.colorSuccess }}>{(result.latencyMs / 1000).toFixed(1)}s</span>;
@@ -1090,19 +1339,23 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                         );
                       })()}
                       <Switch size="small" checked={model.enabled} onChange={(checked) => toggleModel(providerId, model.model_id, checked)} />
-                      <Button type="text" size="small" icon={<Settings size={14} />} onClick={() => handleOpenSettings(model)} />
-                      <Tooltip title={t('settings.testModels')}>
-                        <Button type="text" size="small" icon={<Heart size={14} />} loading={testingModels.has(model.model_id)} onClick={() => handleTestInlineModel(model.model_id)} />
-                      </Tooltip>
-                      <Popconfirm
-                        title={t('settings.removeModelConfirm')}
-                        onConfirm={() => handleRemoveModel(model.model_id)}
-                        okText={t('common.confirm')}
-                        cancelText={t('common.cancel')}
-                        okButtonProps={{ danger: true }}
-                      >
-                        <Button type="text" size="small" danger icon={<Trash2 size={14} />} />
-                      </Popconfirm>
+                      {!batchMode && (
+                        <>
+                          <Button type="text" size="small" icon={<Settings size={14} />} onClick={() => handleOpenSettings(model)} />
+                          <Tooltip title={t('settings.testModels')}>
+                            <Button type="text" size="small" icon={<Heart size={14} />} loading={testingModels.has(model.model_id)} onClick={() => handleTestInlineModel(model.model_id)} />
+                          </Tooltip>
+                          <Popconfirm
+                            title={t('settings.removeModelConfirm')}
+                            onConfirm={() => handleRemoveModel(model.model_id)}
+                            okText={t('common.confirm')}
+                            cancelText={t('common.cancel')}
+                            okButtonProps={{ danger: true }}
+                          >
+                            <Button type="text" size="small" danger icon={<Trash2 size={14} />} />
+                          </Popconfirm>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1494,6 +1747,192 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
           </div>
           </div>
         )}
+      </Modal>
+
+      {/* Batch Edit Modal */}
+      <Modal
+        title={t('settings.batchEditTitle', { count: batchSelected.size })}
+        open={batchEditModalOpen}
+        mask={{ enabled: true, blur: true }}
+        onCancel={() => setBatchEditModalOpen(false)}
+        onOk={handleBatchEditSave}
+        okText={t('settings.batchApply')}
+        cancelText={t('common.cancel')}
+        width={520}
+        destroyOnHidden
+        okButtonProps={{ disabled: ![batchModelTypeEnabled, batchCapabilitiesEnabled, batchMaxTokensEnabled, batchTemperatureEnabled, batchTopPEnabled, batchMaxTokensParamEnabled, batchFreqPenaltyEnabled, batchUseMaxCompletionTokensEnabled, batchNoSystemRoleEnabled, batchForceMaxTokensEnabled, batchThinkingParamStyleEnabled].some(Boolean) }}
+      >
+        <div data-os-scrollbar style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: 4 }}>
+        <div className="space-y-3">
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {t('settings.batchEditHint')}
+          </Text>
+
+          <Divider className="!my-2" />
+
+          {/* Model Type */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="font-medium" style={{ fontSize: 13 }}>{t('settings.modelType.title')}</div>
+              <Switch size="small" checked={batchModelTypeEnabled} onChange={setBatchModelTypeEnabled} />
+            </div>
+            <div className="flex gap-2 flex-wrap" style={{ opacity: batchModelTypeEnabled ? 1 : 0.4, pointerEvents: batchModelTypeEnabled ? 'auto' : 'none' }}>
+              {(Object.keys(MODEL_TYPE_CONFIG) as ModelType[]).map((type_) => (
+                <Tag
+                  key={type_}
+                  color={batchModelType === type_ ? MODEL_TYPE_CONFIG[type_].color : 'default'}
+                  style={{ cursor: 'pointer', fontSize: 12 }}
+                  onClick={() => {
+                    setBatchModelType(type_);
+                    setBatchCapabilities((current) => sanitizeModelCapabilities(type_, current));
+                  }}
+                >
+                  {MODEL_TYPE_CONFIG[type_].icon}
+                  <span style={{ marginLeft: 4 }}>{t(`settings.modelType.${type_}`, MODEL_TYPE_LABEL_KEYS[type_])}</span>
+                </Tag>
+              ))}
+            </div>
+          </div>
+
+          <Divider className="!my-2" />
+
+          {/* Capabilities */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="font-medium" style={{ fontSize: 13 }}>{t('settings.modelAbilities')}</div>
+              <Switch size="small" checked={batchCapabilitiesEnabled} onChange={setBatchCapabilitiesEnabled} />
+            </div>
+            <div className="flex gap-2 flex-wrap" style={{ opacity: batchCapabilitiesEnabled ? 1 : 0.4, pointerEvents: batchCapabilitiesEnabled ? 'auto' : 'none' }}>
+              {getEditableCapabilities(batchModelType).map((cap) => {
+                const selected = batchCapabilities.includes(cap);
+                return (
+                  <Tag
+                    key={cap}
+                    color={selected ? CAPABILITY_COLORS[cap] : 'default'}
+                    style={{ cursor: 'pointer', fontSize: 12, opacity: selected ? 1 : 0.6 }}
+                    onClick={() => {
+                      const next = selected
+                        ? batchCapabilities.filter((c) => c !== cap)
+                        : [...batchCapabilities, cap];
+                      setBatchCapabilities(sanitizeModelCapabilities(batchModelType, next));
+                    }}
+                  >
+                    {CAPABILITY_ICONS[cap]}
+                    <span style={{ marginLeft: 4 }}>{t(`settings.capability.${cap}`, CAPABILITY_LABEL_KEYS[cap])}</span>
+                  </Tag>
+                );
+              })}
+            </div>
+          </div>
+
+          <Divider className="!my-2" />
+
+          {/* Context Window */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="font-medium" style={{ fontSize: 13 }}>{t('settings.contextWindow')}</span>
+              <Switch size="small" checked={batchMaxTokensEnabled} onChange={setBatchMaxTokensEnabled} />
+            </div>
+            <div style={{ opacity: batchMaxTokensEnabled ? 1 : 0.4, pointerEvents: batchMaxTokensEnabled ? 'auto' : 'none' }}>
+              <div className="flex items-center justify-between" style={{ padding: '4px 0' }}>
+                <InputNumber
+                  value={batchMaxTokens}
+                  onChange={(v) => v != null && setBatchMaxTokens(v)}
+                  min={1024}
+                  step={1024}
+                  style={{ width: 110 }}
+                  size="small"
+                  formatter={(v) => v ? `${Number(v).toLocaleString()}` : ''}
+                />
+              </div>
+              <Slider
+                min={1024}
+                max={1048576}
+                step={1024}
+                marks={{ 1024: '', 32768: '32K', 131072: '128K', 524288: '512K', 1048576: '1M' }}
+                value={Math.min(batchMaxTokens, 1048576)}
+                onChange={(v) => setBatchMaxTokens(v)}
+              />
+            </div>
+          </div>
+
+          {/* Parameters */}
+          <div>
+            <div className="font-medium mb-2" style={{ fontSize: 13 }}>{t('settings.modelParams')}</div>
+            <div>
+              <ModelParamSliders
+                values={{
+                  temperature: batchTemperatureEnabled ? batchTemperature : null,
+                  topP: batchTopPEnabled ? batchTopP : null,
+                  maxTokens: batchMaxTokensParamEnabled ? batchMaxTokensParam : null,
+                  frequencyPenalty: batchFreqPenaltyEnabled ? batchFreqPenalty : null,
+                }}
+                onChange={(v) => {
+                  if ('temperature' in v) {
+                    if (v.temperature === null) setBatchTemperatureEnabled(false);
+                    else { setBatchTemperatureEnabled(true); setBatchTemperature(v.temperature); }
+                  }
+                  if ('topP' in v) {
+                    if (v.topP === null) setBatchTopPEnabled(false);
+                    else { setBatchTopPEnabled(true); setBatchTopP(v.topP); }
+                  }
+                  if ('maxTokens' in v) {
+                    if (v.maxTokens === null) setBatchMaxTokensParamEnabled(false);
+                    else { setBatchMaxTokensParamEnabled(true); setBatchMaxTokensParam(v.maxTokens); }
+                  }
+                  if ('frequencyPenalty' in v) {
+                    if (v.frequencyPenalty === null) setBatchFreqPenaltyEnabled(false);
+                    else { setBatchFreqPenaltyEnabled(true); setBatchFreqPenalty(v.frequencyPenalty); }
+                  }
+                }}
+              />
+
+              <Divider className="!my-2" />
+
+              {/* Switches — checkbox on the left to enable, value switch on the right */}
+              <div className="flex items-center justify-between">
+                <Space size="small">
+                  <Checkbox checked={batchUseMaxCompletionTokensEnabled} onChange={e => setBatchUseMaxCompletionTokensEnabled(e.target.checked)} />
+                  <span className="text-sm" style={{ color: token.colorText }}>{t('settings.useMaxCompletionTokens')}</span>
+                </Space>
+                <Switch size="small" checked={batchUseMaxCompletionTokens} onChange={setBatchUseMaxCompletionTokens} disabled={!batchUseMaxCompletionTokensEnabled} />
+              </div>
+              <div className="flex items-center justify-between">
+                <Space size="small">
+                  <Checkbox checked={batchNoSystemRoleEnabled} onChange={e => setBatchNoSystemRoleEnabled(e.target.checked)} />
+                  <span className="text-sm" style={{ color: token.colorText }}>{t('settings.noSystemRole')}</span>
+                </Space>
+                <Switch size="small" checked={batchNoSystemRole} onChange={setBatchNoSystemRole} disabled={!batchNoSystemRoleEnabled} />
+              </div>
+              <div className="flex items-center justify-between">
+                <Space size="small">
+                  <Checkbox checked={batchForceMaxTokensEnabled} onChange={e => setBatchForceMaxTokensEnabled(e.target.checked)} />
+                  <span className="text-sm" style={{ color: token.colorText }}>{t('settings.forceMaxTokens')}</span>
+                </Space>
+                <Switch size="small" checked={batchForceMaxTokens} onChange={setBatchForceMaxTokens} disabled={!batchForceMaxTokensEnabled} />
+              </div>
+              <div className="flex items-center justify-between">
+                <Space size="small">
+                  <Checkbox checked={batchThinkingParamStyleEnabled} onChange={e => setBatchThinkingParamStyleEnabled(e.target.checked)} />
+                  <span className="text-sm" style={{ color: token.colorText }}>{t('settings.thinkingParamStyle')}</span>
+                </Space>
+                <Select
+                  size="small"
+                  style={{ width: 180 }}
+                  value={batchThinkingParamStyle}
+                  onChange={setBatchThinkingParamStyle}
+                  disabled={!batchThinkingParamStyleEnabled}
+                  options={[
+                    { value: 'reasoning_effort', label: 'reasoning_effort (OpenAI)' },
+                    { value: 'enable_thinking', label: 'enable_thinking (SiliconFlow)' },
+                    { value: 'none', label: t('settings.thinkingParamStyleNone') },
+                  ]}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        </div>
       </Modal>
 
       {/* Single Model Test Modal */}

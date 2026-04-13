@@ -840,7 +840,22 @@
     "modelGroup": "Model group",
     "modelGroupAuto": "Leave blank to auto-generate groups by model ID",
     "modelIdRequired": "Please fill in the model ID first",
-    "openSettings": "Settings"
+    "openSettings": "Settings",
+    "batchEditMode": "Batch Edit",
+    "batchSelected": "{{count}} models selected",
+    "batchEnable": "Enable",
+    "batchDisable": "Disable",
+    "batchEdit": "Edit Settings",
+    "batchDeleteBtn": "Delete",
+    "batchDeleteConfirm": "Delete {{count}} selected models?",
+    "batchExit": "Exit batch mode",
+    "batchEnableSuccess": "{{count}} models enabled",
+    "batchDisableSuccess": "{{count}} models disabled",
+    "batchDeleteSuccess": "{{count}} models deleted",
+    "batchEditTitle": "Batch Edit ({{count}} models)",
+    "batchEditHint": "Toggle on the options you want to apply to all selected models",
+    "batchApply": "Apply",
+    "batchEditSuccess": "Updated settings for {{count}} models"
   },
   "backup": {
     "title": "Backup Center",

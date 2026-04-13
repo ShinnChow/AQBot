@@ -840,7 +840,22 @@
     "modelGroup": "مجموعة النماذج",
     "modelGroupAuto": "اتركه فارغاً لتوليد المجموعات تلقائياً حسب معرّف النموذج",
     "modelIdRequired": "يرجى ملء معرّف النموذج أولاً",
-    "openSettings": "الإعدادات"
+    "openSettings": "الإعدادات",
+    "batchEditMode": "تعديل دفعي",
+    "batchSelected": "تم تحديد {{count}} نموذج",
+    "batchEnable": "تمكين",
+    "batchDisable": "تعطيل",
+    "batchEdit": "إعدادات",
+    "batchDeleteBtn": "حذف",
+    "batchDeleteConfirm": "حذف {{count}} نموذج محدد؟",
+    "batchExit": "الخروج من الوضع الدفعي",
+    "batchEnableSuccess": "تم تمكين {{count}} نموذج",
+    "batchDisableSuccess": "تم تعطيل {{count}} نموذج",
+    "batchDeleteSuccess": "تم حذف {{count}} نموذج",
+    "batchEditTitle": "تعديل دفعي ({{count}} نموذج)",
+    "batchEditHint": "سيتم تطبيق الخيارات ذات المفتاح المفعل على جميع النماذج المحددة",
+    "batchApply": "تطبيق",
+    "batchEditSuccess": "تم تحديث إعدادات {{count}} نموذج"
   },
   "backup": {
     "title": "مركز النسخ الاحتياطي",

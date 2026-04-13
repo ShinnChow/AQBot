@@ -840,7 +840,22 @@
     "modelGroup": "Groupe de modèles",
     "modelGroupAuto": "Laisser vide pour générer automatiquement des groupes par ID de modèle",
     "modelIdRequired": "Veuillez d'abord renseigner l'ID du modèle",
-    "openSettings": "Paramètres"
+    "openSettings": "Paramètres",
+    "batchEditMode": "Modification par lot",
+    "batchSelected": "{{count}} modèles sélectionnés",
+    "batchEnable": "Activer",
+    "batchDisable": "Désactiver",
+    "batchEdit": "Paramètres",
+    "batchDeleteBtn": "Supprimer",
+    "batchDeleteConfirm": "Supprimer {{count}} modèles sélectionnés ?",
+    "batchExit": "Quitter le mode lot",
+    "batchEnableSuccess": "{{count}} modèles activés",
+    "batchDisableSuccess": "{{count}} modèles désactivés",
+    "batchDeleteSuccess": "{{count}} modèles supprimés",
+    "batchEditTitle": "Modification par lot ({{count}} modèles)",
+    "batchEditHint": "Les options avec l'interrupteur activé seront appliquées à tous les modèles sélectionnés",
+    "batchApply": "Appliquer",
+    "batchEditSuccess": "Paramètres mis à jour pour {{count}} modèles"
   },
   "backup": {
     "title": "Centre de sauvegarde",

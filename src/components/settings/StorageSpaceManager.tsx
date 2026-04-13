@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Card, Typography, Button, Space, Spin, List, App } from 'antd';
-import { FolderOpen, Image, FileText, CloudUpload, HardDrive } from 'lucide-react';
+import { Typography, Button, Space, Spin, List, App } from 'antd';
+import { FolderOpen, Image, FileText, CloudUpload } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@/lib/invoke';
+import { SettingsGroup } from './SettingsGroup';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 interface BucketStats {
   bucket: string;
@@ -66,25 +67,20 @@ export function StorageSpaceManager() {
 
   return (
     <div className="p-6 pb-12">
-      <div className="flex items-center justify-between mb-4">
-        <Space align="center">
-          <HardDrive size={20} />
-          <Title level={5} style={{ margin: 0 }}>
-            {t('settings.storage.title')}
-          </Title>
-        </Space>
-        <Button icon={<FolderOpen size={16} />} onClick={handleOpenFolder}>
-          {t('settings.storage.openFolder')}
-        </Button>
-      </div>
-
       {loading ? (
         <div className="flex justify-center py-12">
           <Spin />
         </div>
       ) : inventory ? (
         <>
-          <Card size="small" style={{ marginBottom: 16 }}>
+          <SettingsGroup
+            title={t('settings.storage.title')}
+            extra={
+              <Button size="small" icon={<FolderOpen size={14} />} onClick={handleOpenFolder}>
+                {t('settings.storage.openFolder')}
+              </Button>
+            }
+          >
             <List
               dataSource={inventory.buckets}
               renderItem={(bucket) => (
@@ -108,9 +104,9 @@ export function StorageSpaceManager() {
                 </List.Item>
               )}
             />
-          </Card>
+          </SettingsGroup>
 
-          <Card size="small">
+          <SettingsGroup>
             <div className="flex items-center justify-between">
               <Text>{t('settings.storage.totalUsage')}</Text>
               <Space size="large">
@@ -120,7 +116,7 @@ export function StorageSpaceManager() {
                 <Text>{formatBytes(totalBytes)}</Text>
               </Space>
             </div>
-          </Card>
+          </SettingsGroup>
 
           {inventory.documents_root && (
             <div className="mt-3">

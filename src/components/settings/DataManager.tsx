@@ -1,8 +1,9 @@
-import { Button, Card, Divider, Popconfirm, Typography, App } from 'antd';
+import { Button, Divider, Popconfirm, Typography, App } from 'antd';
 import { Share2, Upload, Trash2, AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useConversationStore, useSettingsStore } from '@/stores';
 import { isTauri } from '@/lib/invoke';
+import { SettingsGroup } from './SettingsGroup';
 
 const { Text } = Typography;
 
@@ -117,7 +118,7 @@ export function DataManager() {
 
   return (
     <div className="p-6 pb-12">
-      <Card size="small" title={t('settings.groupData')} style={{ marginBottom: 16 }}>
+      <SettingsGroup title={t('settings.groupData')}>
         <div style={rowStyle} className="flex items-center justify-between">
           <span>{t('settings.exportData')}</span>
           <Button icon={<Share2 size={16} />} onClick={handleExport}>
@@ -131,9 +132,8 @@ export function DataManager() {
             {t('settings.importData')}
           </Button>
         </div>
-      </Card>
-      <Card
-        size="small"
+      </SettingsGroup>
+      <SettingsGroup
         title={
           <Text type="danger">
             <AlertTriangle size={14} className="mr-2" />
@@ -155,7 +155,7 @@ export function DataManager() {
             </Button>
           </Popconfirm>
         </div>
-      </Card>
+      </SettingsGroup>
     </div>
   );
 }

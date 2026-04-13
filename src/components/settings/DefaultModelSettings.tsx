@@ -1,4 +1,4 @@
-import { Card, Slider, InputNumber, Button, Input, Tooltip, Modal, Divider, theme } from 'antd';
+import { Slider, InputNumber, Button, Input, Tooltip, Modal, Divider, theme } from 'antd';
 import { Settings, Info, Undo2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore, useProviderStore } from '@/stores';
@@ -6,6 +6,7 @@ import { useEffect, useCallback, useState } from 'react';
 import type { AppSettings } from '@/types';
 import { ModelSelect, parseModelValue } from '@/components/shared/ModelSelect';
 import { ModelParamSliders } from '@/components/common/ModelParamSliders';
+import { SettingsGroup } from './SettingsGroup';
 
 const { TextArea } = Input;
 
@@ -248,12 +249,11 @@ function ModelCard({
 
   return (
     <>
-      <Card
-        size="small"
-        title={title}
-        style={{ marginBottom: 16, width: '100%' }}
-      >
-        <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+      <SettingsGroup title={title}>
+        <div style={{ fontSize: 12, color: token.colorTextDescription, marginBottom: 12 }}>
+          {description}
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
           <ModelSelect
             style={{ flex: 1 }}
             value={currentValue}
@@ -267,10 +267,7 @@ function ModelCard({
             />
           </Tooltip>
         </div>
-        <div style={{ color: token.colorTextSecondary, fontSize: 13 }}>
-          {description}
-        </div>
-      </Card>
+      </SettingsGroup>
 
       <ModelParamsModal
         open={modalOpen}

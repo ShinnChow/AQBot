@@ -1,8 +1,9 @@
-import { Button, Card, Divider, Input, Space, Switch, Tooltip } from 'antd';
+import { Button, Divider, Input, Space, Switch, Tooltip, theme } from 'antd';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, RotateCcw } from 'lucide-react';
 import { useSettingsStore } from '@/stores';
+import { SettingsGroup } from './SettingsGroup';
 import {
   SHORTCUT_ACTIONS,
   DEFAULT_SHORTCUT_BINDINGS,
@@ -22,6 +23,7 @@ type ShortcutSettingsUpdate = Partial<Record<ShortcutSettingKey | 'global_shortc
 
 export function ShortcutSettings() {
   const { t } = useTranslation();
+  const { token } = theme.useToken();
   const settings = useSettingsStore((s) => s.settings);
   const globalShortcutStatus = useSettingsStore((s) => s.globalShortcutStatus);
   const saveSettings = useSettingsStore((s) => s.saveSettings);
@@ -112,7 +114,7 @@ export function ShortcutSettings() {
 
   return (
     <div className="p-6 pb-12">
-      <Card size="small" title={t('settings.groupShortcuts')} style={{ marginBottom: 16 }}>
+      <SettingsGroup title={t('settings.groupShortcuts')}>
         <div style={{ padding: '4px 0' }} className="flex items-center justify-between">
           <span>{t('settings.enableGlobalShortcuts')}</span>
           <Switch
@@ -191,12 +193,11 @@ export function ShortcutSettings() {
             </div>
           </div>
         )}
-      </Card>
+      </SettingsGroup>
 
-      <Card
-        size="small"
+      <SettingsGroup
         title={t('settings.shortcutListTitle')}
-        extra={(
+        extra={
           <Tooltip title={t('settings.resetShortcutDefaults')}>
             <Button
               type="text"
@@ -205,7 +206,7 @@ export function ShortcutSettings() {
               onClick={() => { void handleResetDefaults(); }}
             />
           </Tooltip>
-        )}
+        }
       >
         <div style={{ width: '100%' }}>
           {rows.map((descriptor, index) => {
@@ -228,11 +229,11 @@ export function ShortcutSettings() {
                   <div className="flex flex-col">
                     <span>{t(descriptor.labelKey)}</span>
                     {descriptor.supportsGlobal ? (
-                      <span style={{ fontSize: 12, opacity: 0.72 }}>
+                      <span style={{ fontSize: 12, color: token.colorTextDescription }}>
                         {t('settings.shortcutGlobalAndLocal')}
                       </span>
                     ) : (
-                      <span style={{ fontSize: 12, opacity: 0.72 }}>
+                      <span style={{ fontSize: 12, color: token.colorTextDescription }}>
                         {t('settings.shortcutLocalOnly')}
                       </span>
                     )}
@@ -293,7 +294,7 @@ export function ShortcutSettings() {
             </div>
           ) : null}
         </div>
-      </Card>
+      </SettingsGroup>
     </div>
   );
 }

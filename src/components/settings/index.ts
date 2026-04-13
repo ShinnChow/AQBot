@@ -1,4 +1,6 @@
 export { SettingsSidebar } from './SettingsSidebar';
+export { SettingsGroup } from './SettingsGroup';
+export { SettingsSelect } from './SettingsSelect';
 export { ProviderSettings } from './ProviderSettings';
 export { ProviderList } from './ProviderList';
 export { ProviderDetail } from './ProviderDetail';

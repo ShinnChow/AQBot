@@ -67,12 +67,6 @@ export function useShadcnTheme(
           Modal: {
             borderRadiusLG: Math.max(radiusLG, 8),
           },
-          Switch: {
-            trackHeight: 24,
-            trackMinWidth: 44,
-            innerMinMargin: 4,
-            innerMaxMargin: 24,
-          },
           Slider: {
             handleSize: 8,
             handleSizeHover: 10,

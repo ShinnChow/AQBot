@@ -1,4 +1,4 @@
-import { Button, Card, Divider, Typography, InputNumber } from 'antd';
+import { Button, Divider, Typography, InputNumber } from 'antd';
 import { Github, Globe, RefreshCw, Terminal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useCallback } from 'react';
@@ -6,6 +6,7 @@ import { isTauri, invoke } from '@/lib/invoke';
 import logoUrl from '@/assets/image/logo.png';
 import { useSettingsStore } from '@/stores';
 import { useUpdateChecker } from '@/hooks/useUpdateChecker';
+import { SettingsGroup } from './SettingsGroup';
 
 const { Text } = Typography;
 
@@ -65,7 +66,7 @@ export function AboutPage() {
         </Text>
       </div>
 
-      <Card size="small" title={t('settings.groupAppInfo')} style={{ marginBottom: 16 }}>
+      <SettingsGroup title={t('settings.groupAppInfo')}>
         <div style={rowStyle} className="flex items-center justify-between">
           <span>{t('settings.version')}</span>
           <Text type="secondary">{appVersion}</Text>
@@ -75,8 +76,8 @@ export function AboutPage() {
           <span>{t('settings.openSource')}</span>
           <Text type="secondary">AGPL-3.0</Text>
         </div>
-      </Card>
-      <Card size="small" title={t('settings.groupLinks')} style={{ marginBottom: 16 }}>
+      </SettingsGroup>
+      <SettingsGroup title={t('settings.groupLinks')}>
         <div style={rowStyle} className="flex items-center justify-between">
           <span>{t('settings.website')}</span>
           <Button
@@ -137,7 +138,7 @@ export function AboutPage() {
             </div>
           </>
         )}
-      </Card>
+      </SettingsGroup>
     </div>
   );
 }

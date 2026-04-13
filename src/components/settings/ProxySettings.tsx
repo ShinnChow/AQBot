@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { Button, Card, Divider, Input, InputNumber, Select, App } from 'antd';
+import { Button, Divider, Input, InputNumber, App } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '@/stores';
 import { invoke } from '@/lib/invoke';
+import { SettingsGroup } from './SettingsGroup';
+import { SettingsSelect } from './SettingsSelect';
 
 export function ProxySettings() {
   const { t } = useTranslation();
@@ -48,15 +50,14 @@ export function ProxySettings() {
 
   return (
     <div className="p-6 pb-12">
-      <Card size="small" title={t('settings.groupProxy')}>
+      <SettingsGroup title={t('settings.groupProxy')}>
         <div style={rowStyle} className="flex items-center justify-between">
           <span>{t('settings.proxyType')}</span>
-          <Select
+          <SettingsSelect
             value={settings.proxy_type ?? 'none'}
             onChange={(val) =>
               saveSettings({ proxy_type: val === 'none' ? null : val })
             }
-            style={{ width: 200 }}
             options={[
               { label: t('settings.proxyNone'), value: 'none' },
               { label: t('settings.proxySystem'), value: 'system' },
@@ -97,7 +98,7 @@ export function ProxySettings() {
             {t('settings.testProxy')}
           </Button>
         </div>
-      </Card>
+      </SettingsGroup>
     </div>
   );
 }

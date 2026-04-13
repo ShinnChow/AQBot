@@ -1,10 +1,12 @@
-import { Card, ColorPicker, Divider, Select, Segmented, Slider } from 'antd';
+import { ColorPicker, Divider, Segmented, Slider } from 'antd';
 import { Sun, Moon, Monitor } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useMemo } from 'react';
 import { useSettingsStore } from '@/stores';
 import { invoke, isTauri } from '@/lib/invoke';
 import { SHIKI_LIGHT_THEMES, SHIKI_DARK_THEMES, formatThemeName } from '@/constants/codeThemes';
+import { SettingsGroup } from './SettingsGroup';
+import { SettingsSelect } from './SettingsSelect';
 
 export function DisplaySettings() {
   const { t } = useTranslation();
@@ -30,7 +32,7 @@ export function DisplaySettings() {
 
   return (
     <div className="p-6 pb-12">
-      <Card size="small" title={t('settings.groupTheme')} style={{ marginBottom: 16 }}>
+      <SettingsGroup title={t('settings.groupTheme')}>
         <div style={rowStyle} className="flex items-center justify-between">
           <span>{t('settings.theme')}</span>
           <Segmented
@@ -80,8 +82,8 @@ export function DisplaySettings() {
             />
           </div>
         </div>
-      </Card>
-      <Card size="small" title={t('settings.groupFontRadius')} style={{ marginBottom: 16 }}>
+      </SettingsGroup>
+      <SettingsGroup title={t('settings.groupFontRadius')}>
         <div style={{ padding: '4px 0' }}>
           <span>{t('settings.fontSize')}</span>
           <Slider
@@ -107,11 +109,10 @@ export function DisplaySettings() {
         <Divider style={{ margin: '4px 0' }} />
         <div style={rowStyle} className="flex items-center justify-between">
           <span>{t('settings.fontFamily')}</span>
-          <Select
-            showSearch
-            value={settings.font_family}
+          <SettingsSelect
+            searchable
+            value={settings.font_family || ''}
             onChange={(val) => saveSettings({ font_family: val })}
-            style={{ width: 200 }}
             options={[
               { label: t('settings.fontDefault'), value: '' },
               ...systemFonts.map((f) => ({ label: f, value: f })),
@@ -121,11 +122,10 @@ export function DisplaySettings() {
         <Divider style={{ margin: '4px 0' }} />
         <div style={rowStyle} className="flex items-center justify-between">
           <span>{t('settings.codeFontFamily')}</span>
-          <Select
-            showSearch
-            value={settings.code_font_family}
+          <SettingsSelect
+            searchable
+            value={settings.code_font_family || ''}
             onChange={(val) => saveSettings({ code_font_family: val })}
-            style={{ width: 200 }}
             options={[
               { label: t('settings.fontDefault'), value: '' },
               ...systemFonts.map((f) => ({ label: f, value: f })),
@@ -135,27 +135,26 @@ export function DisplaySettings() {
         <Divider style={{ margin: '4px 0' }} />
         <div style={rowStyle} className="flex items-center justify-between">
           <span>{t('settings.codeThemeLight')}</span>
-          <Select
-            showSearch
+          <SettingsSelect
+            searchable
             value={settings.code_theme_light || 'github-light'}
             onChange={(val) => saveSettings({ code_theme_light: val })}
-            style={{ width: 200 }}
             options={lightThemeOptions}
           />
         </div>
         <Divider style={{ margin: '4px 0' }} />
         <div style={rowStyle} className="flex items-center justify-between">
           <span>{t('settings.codeThemeDark')}</span>
-          <Select
-            showSearch
+          <SettingsSelect
+            searchable
             value={settings.code_theme || 'poimandres'}
             onChange={(val) => saveSettings({ code_theme: val })}
-            style={{ width: 200 }}
             options={darkThemeOptions}
           />
         </div>
         <Divider style={{ margin: '4px 0' }} />
         <div style={{ padding: '4px 0' }}>
+          <span>{t('settings.borderRadius')}</span>
           <Slider
             min={0}
             max={20}
@@ -164,7 +163,7 @@ export function DisplaySettings() {
             marks={{ 0: '0', 4: '4', 8: '8', 12: '12', 16: '16', 20: '20' }}
           />
         </div>
-      </Card>
+      </SettingsGroup>
     </div>
   );
 }

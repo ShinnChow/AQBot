@@ -1,7 +1,8 @@
-import { Card, Divider, Input, Select, Switch, theme } from 'antd';
-import { Columns2, Map, MessageSquare } from 'lucide-react';
+import { Divider, Input, Switch, theme } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '@/stores';
+import { SettingsGroup } from './SettingsGroup';
+import { SettingsSelect } from './SettingsSelect';
 
 const { TextArea } = Input;
 
@@ -14,15 +15,7 @@ export function ConversationSettings() {
 
   return (
     <div style={{ padding: 24 }}>
-      <Card
-        size="small"
-        title={
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <MessageSquare size={16} />
-            {t('settings.defaultSystemPrompt')}
-          </span>
-        }
-      >
+      <SettingsGroup title={t('settings.defaultSystemPrompt')}>
         <div style={{ fontSize: 12, color: token.colorTextDescription, marginBottom: 12 }}>
           {t('settings.defaultSystemPromptDesc')}
         </div>
@@ -32,15 +25,14 @@ export function ConversationSettings() {
           placeholder={t('settings.defaultSystemPromptPlaceholder')}
           autoSize={{ minRows: 3, maxRows: 10 }}
         />
-      </Card>
+      </SettingsGroup>
 
-      <Card size="small" title={t('settings.groupMessageStyle')} style={{ marginTop: 16 }}>
+      <SettingsGroup title={t('settings.groupMessageStyle')}>
         <div className="flex items-center justify-between" style={rowStyle}>
           <span>{t('settings.bubbleStyle')}</span>
-          <Select
+          <SettingsSelect
             value={settings.bubble_style}
             onChange={(val) => saveSettings({ bubble_style: val })}
-            style={{ width: 200 }}
             options={[
               { label: t('settings.bubbleModern'), value: 'modern' },
               { label: t('settings.bubbleCompact'), value: 'compact' },
@@ -48,27 +40,17 @@ export function ConversationSettings() {
             ]}
           />
         </div>
-      </Card>
+      </SettingsGroup>
 
-      <Card
-        size="small"
-        title={
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Columns2 size={16} />
-            {t('settings.multiModelDisplayMode')}
-          </span>
-        }
-        style={{ marginTop: 16 }}
-      >
+      <SettingsGroup title={t('settings.multiModelDisplayMode')}>
         <div style={{ fontSize: 12, color: token.colorTextDescription, marginBottom: 12 }}>
           {t('settings.multiModelDisplayModeDesc')}
         </div>
         <div className="flex items-center justify-between" style={rowStyle}>
           <span>{t('settings.multiModelDisplayMode')}</span>
-          <Select
+          <SettingsSelect
             value={settings.multi_model_display_mode ?? 'tabs'}
             onChange={(val) => saveSettings({ multi_model_display_mode: val as 'tabs' | 'side-by-side' | 'stacked' })}
-            style={{ width: 200 }}
             options={[
               { label: t('settings.multiModelDisplayModeTabs'), value: 'tabs' },
               { label: t('settings.multiModelDisplayModeSideBySide'), value: 'side-by-side' },
@@ -76,18 +58,9 @@ export function ConversationSettings() {
             ]}
           />
         </div>
-      </Card>
+      </SettingsGroup>
 
-      <Card
-        size="small"
-        title={
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Map size={16} />
-            {t('settings.chatMinimap')}
-          </span>
-        }
-        style={{ marginTop: 16 }}
-      >
+      <SettingsGroup title={t('settings.chatMinimap')}>
         <div style={{ fontSize: 12, color: token.colorTextDescription, marginBottom: 12 }}>
           {t('settings.chatMinimapEnabledDesc')}
         </div>
@@ -103,10 +76,9 @@ export function ConversationSettings() {
             <Divider style={{ margin: '4px 0' }} />
             <div className="flex items-center justify-between" style={rowStyle}>
               <span>{t('settings.chatMinimapStyle')}</span>
-              <Select
+              <SettingsSelect
                 value={settings.chat_minimap_style ?? 'faq'}
                 onChange={(val) => saveSettings({ chat_minimap_style: val as 'faq' | 'sticky' })}
-                style={{ width: 200 }}
                 options={[
                   { label: t('settings.chatMinimapFaq'), value: 'faq' },
                   { label: t('settings.chatMinimapSticky'), value: 'sticky' },
@@ -115,7 +87,7 @@ export function ConversationSettings() {
             </div>
           </>
         )}
-      </Card>
+      </SettingsGroup>
     </div>
   );
 }

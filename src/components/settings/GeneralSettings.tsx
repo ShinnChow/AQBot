@@ -1,7 +1,10 @@
-import { Card, Divider, Select, Switch } from 'antd';
+import { Divider, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '@/stores';
 import { isTauri, invoke } from '@/lib/invoke';
+import { LANG_OPTIONS } from '@/lib/constants';
+import { SettingsGroup } from './SettingsGroup';
+import { SettingsSelect } from './SettingsSelect';
 
 export function GeneralSettings() {
   const { t, i18n } = useTranslation();
@@ -19,32 +22,22 @@ export function GeneralSettings() {
   return (
     <div className="p-6 pb-12">
       {/* Language */}
-      <Card size="small" title={t('settings.groupLanguage')} style={{ marginBottom: 16 }}>
+      <SettingsGroup title={t('settings.groupLanguage')}>
         <div style={rowStyle} className="flex items-center justify-between">
           <span>{t('settings.language')}</span>
-          <Select
+          <SettingsSelect
             value={i18n.language}
             onChange={handleLanguageChange}
-            options={[
-              { label: '简体中文', value: 'zh-CN' },
-              { label: '繁體中文', value: 'zh-TW' },
-              { label: 'English', value: 'en-US' },
-              { label: '日本語', value: 'ja' },
-              { label: '한국어', value: 'ko' },
-              { label: 'Français', value: 'fr' },
-              { label: 'Deutsch', value: 'de' },
-              { label: 'Español', value: 'es' },
-              { label: 'Русский', value: 'ru' },
-              { label: 'हिन्दी', value: 'hi' },
-              { label: 'العربية', value: 'ar' },
-            ]}
-            style={{ width: 200 }}
+            options={LANG_OPTIONS.map((opt) => ({
+              label: <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>{opt.icon} {opt.label}</span>,
+              value: opt.key,
+            }))}
           />
         </div>
-      </Card>
+      </SettingsGroup>
 
       {/* Startup */}
-      <Card size="small" title={t('settings.groupStartup')} style={{ marginBottom: 16 }}>
+      <SettingsGroup title={t('settings.groupStartup')}>
         <div style={rowStyle} className="flex items-center justify-between">
           <span>{t('settings.autoStart')}</span>
           <Switch
@@ -98,10 +91,10 @@ export function GeneralSettings() {
             disabled={!inTauri}
           />
         </div>
-      </Card>
+      </SettingsGroup>
 
       {/* Tray & Window */}
-      <Card size="small" title={t('settings.groupTray')}>
+      <SettingsGroup title={t('settings.groupTray')}>
         <div style={rowStyle} className="flex items-center justify-between">
           <span>{t('settings.minimizeToTray')}</span>
           <Switch
@@ -114,7 +107,7 @@ export function GeneralSettings() {
             }}
           />
         </div>
-      </Card>
+      </SettingsGroup>
     </div>
   );
 }

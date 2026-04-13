@@ -38,9 +38,7 @@ impl AQBotProviderBridge {
             "openai" => ApiType::OpenAICompletions,
             "gemini" => ApiType::OpenAICompletions,
             "custom" => ApiType::OpenAICompletions,
-            "openai_responses" => {
-                return Err("OpenAI Responses API is not supported in Agent mode".to_string());
-            }
+            "openai_responses" => ApiType::OpenAICompletions,
             other => {
                 tracing::warn!(
                     "Unknown provider type '{}', defaulting to OpenAI compat",

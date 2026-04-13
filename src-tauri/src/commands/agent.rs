@@ -192,7 +192,7 @@ fn create_adapter_arc(pt: &ProviderType) -> Result<Arc<dyn ProviderAdapter>, Str
         }
         ProviderType::Gemini => Ok(Arc::new(aqbot_providers::gemini::GeminiAdapter::new())),
         ProviderType::OpenAIResponses => {
-            Err("OpenAI Responses API is not supported in Agent mode".to_string())
+            Ok(Arc::new(aqbot_providers::openai_responses::OpenAIResponsesAdapter::new()))
         }
     }
 }

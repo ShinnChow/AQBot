@@ -76,6 +76,12 @@ const MODEL_TYPE_CONFIG: Record<ModelType, { color: string; icon: React.ReactNod
   Embedding: { color: 'cyan', icon: <Database size={12} /> },
 };
 
+const MODEL_SYNC_STATUS_CONFIG: Record<ModelSyncStatus, { color: string; labelKey: string }> = {
+  synced: { color: 'blue', labelKey: 'settings.modelAlreadyAdded' },
+  'local-only': { color: 'gold', labelKey: 'settings.remoteMissing' },
+  'remote-only': { color: 'green', labelKey: 'settings.remoteAvailable' },
+};
+
 const DEFAULT_PATHS: Record<ProviderType, string> = {
   openai: '/v1/chat/completions',
   openai_responses: '/v1/responses',
@@ -91,6 +97,15 @@ const DEFAULT_HOSTS: Record<ProviderType, string> = {
   gemini: 'https://generativelanguage.googleapis.com',
   custom: '',
 };
+
+type ModelSyncStatus = 'synced' | 'local-only' | 'remote-only';
+
+interface ModelSyncEntry {
+  model: Model;
+  localModel: Model | null;
+  remoteModel: Model | null;
+  status: ModelSyncStatus;
+}
 
 function deriveModelGroupName(modelId: string): string {
   const parts = modelId
@@ -130,6 +145,35 @@ function getDefaultCapabilitiesForType(modelType: ModelType): ModelCapability[] 
     default:
       return ['TextChat'];
   }
+}
+
+function buildModelSyncEntries(localModels: Model[], remoteModels: Model[]): ModelSyncEntry[] {
+  const localById = new Map(localModels.map((model) => [model.model_id, model]));
+  const remoteById = new Map(remoteModels.map((model) => [model.model_id, model]));
+  const ids = Array.from(new Set([...localById.keys(), ...remoteById.keys()]));
+
+  return ids
+    .map((modelId) => {
+      const localModel = localById.get(modelId) ?? null;
+      const remoteModel = remoteById.get(modelId) ?? null;
+      const model = localModel ?? remoteModel!;
+      const status: ModelSyncStatus = localModel && remoteModel
+        ? 'synced'
+        : localModel
+          ? 'local-only'
+          : 'remote-only';
+
+      return {
+        model,
+        localModel,
+        remoteModel,
+        status,
+      };
+    })
+    .sort((a, b) =>
+      getModelGroupName(a.model).localeCompare(getModelGroupName(b.model))
+      || (a.model.name || a.model.model_id).localeCompare(b.model.name || b.model.model_id),
+    );
 }
 
 interface ProviderDetailProps {
@@ -202,7 +246,7 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
   const [singleTestResult, setSingleTestResult] = useState<{ latencyMs?: number; error?: string } | null>(null);
   const [singleTestLoading, setSingleTestLoading] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerModels, setPickerModels] = useState<Model[]>([]);
+  const [pickerModels, setPickerModels] = useState<ModelSyncEntry[]>([]);
   const [pickerSelected, setPickerSelected] = useState<Set<string>>(new Set());
   const [pickerSearch, setPickerSearch] = useState('');
   const [pickerCollapsed, setPickerCollapsed] = useState<Set<string>>(new Set());
@@ -239,20 +283,23 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
   const [batchThinkingParamStyleEnabled, setBatchThinkingParamStyleEnabled] = useState(false);
 
   const pickerGroups = useMemo(() => {
-    const filtered = pickerModels.filter((m) =>
-      !pickerSearch || [m.name, m.model_id].some((v) => v.toLowerCase().includes(pickerSearch.toLowerCase())),
+    const filtered = pickerModels.filter(({ model }) =>
+      !pickerSearch || [model.name, model.model_id].some((v) => v.toLowerCase().includes(pickerSearch.toLowerCase())),
     );
-    const groups: Record<string, Model[]> = {};
-    for (const m of filtered) {
-      const key = getModelGroupName(m);
+    const groups: Record<string, ModelSyncEntry[]> = {};
+    for (const entry of filtered) {
+      const key = getModelGroupName(entry.model);
       if (!groups[key]) groups[key] = [];
-      groups[key].push(m);
+      groups[key].push(entry);
     }
     return { filtered, entries: Object.entries(groups) };
   }, [pickerModels, pickerSearch]);
 
   // Flatten picker groups into virtual rows
-  type PickerRow = { type: 'group'; group: string; models: Model[] } | { type: 'model'; model: Model } | { type: 'spacer'; beforeGroup: string };
+  type PickerRow =
+    | { type: 'group'; group: string; models: ModelSyncEntry[] }
+    | { type: 'model'; item: ModelSyncEntry }
+    | { type: 'spacer'; beforeGroup: string };
   const flatPickerRows = useMemo<PickerRow[]>(() => {
     const rows: PickerRow[] = [];
     const entries = pickerGroups.entries;
@@ -261,8 +308,8 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
       if (i > 0) rows.push({ type: 'spacer', beforeGroup: group });
       rows.push({ type: 'group', group, models });
       if (!pickerCollapsed.has(group)) {
-        for (const model of models) {
-          rows.push({ type: 'model', model });
+        for (const item of models) {
+          rows.push({ type: 'model', item });
         }
       }
     }
@@ -283,7 +330,7 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
       const row = flatPickerRows[index];
       if (row.type === 'spacer') return `spacer-${row.beforeGroup}`;
       if (row.type === 'group') return `group-${row.group}`;
-      return `model-${row.model.model_id}`;
+      return `model-${row.item.model.model_id}`;
     },
     overscan: 15,
   });
@@ -400,15 +447,11 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
   const handleRefreshModels = useCallback(async () => {
     setRefreshing(true);
     try {
-      const models = await fetchRemoteModels(providerId);
-      const existingIds = new Set((provider?.models ?? []).map((m) => m.model_id));
-      const newModels = models.filter((m) => !existingIds.has(m.model_id));
-      if (newModels.length === 0) {
-        message.info(t('settings.noNewModels'));
-        return;
-      }
-      setPickerModels(newModels);
-      setPickerSelected(new Set(newModels.map((m) => m.model_id)));
+      const remoteModels = await fetchRemoteModels(providerId);
+      const localModels = provider?.models ?? [];
+      const syncEntries = buildModelSyncEntries(localModels, remoteModels);
+      setPickerModels(syncEntries);
+      setPickerSelected(new Set(localModels.map((m) => m.model_id)));
       setPickerSearch('');
       setPickerCollapsed(new Set());
       setPickerOpen(true);
@@ -425,20 +468,21 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
   }, [providerId, fetchRemoteModels, provider?.models, message, t]);
 
   const handlePickerConfirm = useCallback(async () => {
-    const selectedModels = pickerModels.filter((m) => pickerSelected.has(m.model_id));
+    const selectedModels = pickerModels
+      .filter(({ model }) => pickerSelected.has(model.model_id))
+      .map((entry) => entry.localModel ?? entry.remoteModel ?? entry.model);
     if (selectedModels.length === 0) {
       setPickerOpen(false);
       return;
     }
-    const merged = [...(provider?.models ?? []), ...selectedModels];
     try {
-      await saveModels(providerId, merged);
-      message.success(t('settings.modelsAdded', { count: selectedModels.length }));
+      await saveModels(providerId, selectedModels);
+      message.success(t('settings.modelSyncApplied'));
     } catch {
       message.error(t('error.saveFailed'));
     }
     setPickerOpen(false);
-  }, [pickerModels, pickerSelected, provider?.models, providerId, saveModels, message, t]);
+  }, [pickerModels, pickerSelected, providerId, saveModels, message, t]);
 
   const handleTestSingleModel = useCallback(async () => {
     if (!singleTestModelId) return;
@@ -1075,6 +1119,7 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                 type="text"
                 size="small"
                 icon={<Search size={14} />}
+                aria-label={t('settings.searchModels')}
                 onClick={() => {
                   setShowModelSearch(!showModelSearch);
                   if (showModelSearch) setModelSearch('');
@@ -1095,6 +1140,8 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                   type="text"
                   size="small"
                   icon={<RefreshCw size={14} />}
+                  aria-label={t('settings.syncModels')}
+                  title={t('settings.syncModels')}
                   loading={refreshing}
                   onClick={handleRefreshModels}
                 />
@@ -1104,6 +1151,7 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                   type="text"
                   size="small"
                   icon={<Plus size={14} />}
+                  aria-label={t('settings.addModel')}
                   onClick={() => handleOpenAddModel()}
                 />
               </Tooltip>
@@ -1224,7 +1272,13 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                       <Space size="small" onClick={(e) => e.stopPropagation()}>
                         {!batchMode && (
                           <Tooltip title={t('settings.addModelToGroup')}>
-                            <Button size="small" type="text" icon={<Plus size={14} />} onClick={() => handleOpenAddModel(group)} />
+                            <Button
+                              size="small"
+                              type="text"
+                              icon={<Plus size={14} />}
+                              aria-label={t('settings.addModelToGroup')}
+                              onClick={() => handleOpenAddModel(group)}
+                            />
                           </Tooltip>
                         )}
                         {!batchMode && (
@@ -1249,9 +1303,12 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                           onChange={(checked) => { models.forEach((m) => toggleModel(providerId, m.model_id, checked)); }}
                         />
                         {!batchMode && (
-                          <Popconfirm
-                            title={t('settings.deleteGroupConfirm')}
-                            onConfirm={async () => {
+                          <Button
+                            size="small"
+                            type="text"
+                            danger
+                            icon={<Trash2 size={14} />}
+                            onClick={async () => {
                               const modelIds = new Set(models.map((m) => m.model_id));
                               const updatedModels = (provider?.models ?? []).filter((m) => !modelIds.has(m.model_id));
                               try {
@@ -1260,12 +1317,7 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                                 message.error(t('error.saveFailed'));
                               }
                             }}
-                            okText={t('common.confirm')}
-                            cancelText={t('common.cancel')}
-                            okButtonProps={{ danger: true }}
-                          >
-                            <Button size="small" type="text" danger icon={<Trash2 size={14} />} />
-                          </Popconfirm>
+                          />
                         )}
                       </Space>
                     </div>
@@ -1345,15 +1397,7 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                           <Tooltip title={t('settings.testModels')}>
                             <Button type="text" size="small" icon={<Heart size={14} />} loading={testingModels.has(model.model_id)} onClick={() => handleTestInlineModel(model.model_id)} />
                           </Tooltip>
-                          <Popconfirm
-                            title={t('settings.removeModelConfirm')}
-                            onConfirm={() => handleRemoveModel(model.model_id)}
-                            okText={t('common.confirm')}
-                            cancelText={t('common.cancel')}
-                            okButtonProps={{ danger: true }}
-                          >
-                            <Button type="text" size="small" danger icon={<Trash2 size={14} />} />
-                          </Popconfirm>
+                          <Button type="text" size="small" danger icon={<Trash2 size={14} />} onClick={() => handleRemoveModel(model.model_id)} />
                         </>
                       )}
                     </div>
@@ -1478,12 +1522,12 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
         }}
         okText={t('common.confirm')}
         cancelText={t('common.cancel')}
-        >
-          <Input.Password
-            value={keyValue}
-            onChange={(e) => setKeyValue(e.target.value)}
-            placeholder="sk-..."
-          />
+      >
+        <Input.Password
+          value={keyValue}
+          onChange={(e) => setKeyValue(e.target.value)}
+          placeholder="sk-..."
+        />
       </Modal>
 
       <Modal
@@ -1990,11 +2034,11 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
 
       {/* Model picker modal */}
       <Modal
-        title={t('settings.selectModels')}
+        title={t('settings.syncModels')}
         open={pickerOpen}
         onCancel={() => setPickerOpen(false)}
         onOk={handlePickerConfirm}
-        okText={`${t('settings.addSelected')} (${pickerSelected.size})`}
+        okText={t('settings.applyModelSync')}
         cancelText={t('common.cancel')}
         okButtonProps={{ disabled: pickerSelected.size === 0 }}
         width={560}
@@ -2003,8 +2047,8 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
       >
         {(() => {
           const { filtered } = pickerGroups;
-          const allFilteredChecked = filtered.length > 0 && filtered.every((m) => pickerSelected.has(m.model_id));
-          const someFilteredChecked = filtered.some((m) => pickerSelected.has(m.model_id));
+          const allFilteredChecked = filtered.length > 0 && filtered.every(({ model }) => pickerSelected.has(model.model_id));
+          const someFilteredChecked = filtered.some(({ model }) => pickerSelected.has(model.model_id));
           return (
             <>
               <div style={{ position: 'sticky', top: 0, zIndex: 1, background: 'inherit', padding: '8px 24px', borderBottom: `1px solid ${token.colorBorderSecondary}`, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -2014,9 +2058,9 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                   onChange={(e) => {
                     setPickerSelected((prev) => {
                       const next = new Set(prev);
-                      for (const m of filtered) {
-                        if (e.target.checked) next.add(m.model_id);
-                        else next.delete(m.model_id);
+                      for (const { model } of filtered) {
+                        if (e.target.checked) next.add(model.model_id);
+                        else next.delete(model.model_id);
                       }
                       return next;
                     });
@@ -2069,8 +2113,8 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                     }
                     if (row.type === 'group') {
                       const { group, models } = row;
-                      const allChecked = models.every((m) => pickerSelected.has(m.model_id));
-                      const someChecked = models.some((m) => pickerSelected.has(m.model_id));
+                      const allChecked = models.every(({ model }) => pickerSelected.has(model.model_id));
+                      const someChecked = models.some(({ model }) => pickerSelected.has(model.model_id));
                       const collapsed = pickerCollapsed.has(group);
                       return (
                         <div
@@ -2096,16 +2140,16 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                                 onChange={(e) => {
                                   setPickerSelected((prev) => {
                                     const next = new Set(prev);
-                                    for (const m of models) {
-                                      if (e.target.checked) next.add(m.model_id);
-                                      else next.delete(m.model_id);
+                                    for (const { model } of models) {
+                                      if (e.target.checked) next.add(model.model_id);
+                                      else next.delete(model.model_id);
                                     }
                                     return next;
                                   });
                                 }}
                               />
                             </div>
-                            <ModelIcon model={models[0]?.model_id ?? group} size={20} type="avatar" />
+                            <ModelIcon model={models[0]?.model.model_id ?? group} size={20} type="avatar" />
                             <Text style={{ fontWeight: 600 }}>{group}</Text>
                             <Tag style={{ fontSize: 11, lineHeight: '18px', padding: '0 6px', margin: 0 }}>{models.length}</Tag>
                           </div>
@@ -2113,7 +2157,9 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                       );
                     }
                     // model row
-                    const { model: m } = row;
+                    const { item } = row;
+                    const { model: m } = item;
+                    const statusConfig = MODEL_SYNC_STATUS_CONFIG[item.status];
                     return (
                       <div
                         key={`m-${m.model_id}`}
@@ -2127,6 +2173,7 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                         >
                           <Checkbox
                             checked={pickerSelected.has(m.model_id)}
+                            aria-label={m.model_id}
                             onChange={(e) => {
                               setPickerSelected((prev) => {
                                 const next = new Set(prev);
@@ -2143,7 +2190,15 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                               {m.name && m.name !== m.model_id && (
                                 <Text type="secondary" style={{ fontSize: 11 }}>({m.model_id})</Text>
                               )}
+                              <Tag color={statusConfig.color} style={{ marginInlineStart: 4 }}>
+                                {t(statusConfig.labelKey)}
+                              </Tag>
                             </div>
+                            {item.localModel && item.remoteModel && item.localModel.name !== item.remoteModel.name && (
+                              <Text type="secondary" style={{ fontSize: 11 }}>
+                                {t('settings.remoteName')}: {item.remoteModel.name}
+                              </Text>
+                            )}
                           </div>
                         </div>
                       </div>

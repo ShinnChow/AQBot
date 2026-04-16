@@ -1,47 +1,61 @@
 import { App } from 'antd';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ProviderConfig } from '@/types';
 import { ProviderDetail } from '../ProviderDetail';
 
-const toggleProvider = vi.fn();
-const updateProvider = vi.fn();
-const deleteProvider = vi.fn();
-const addProviderKey = vi.fn();
-const deleteProviderKey = vi.fn();
-const toggleProviderKey = vi.fn();
-const validateProviderKey = vi.fn();
-const toggleModel = vi.fn();
-const updateModelParams = vi.fn();
-const fetchRemoteModels = vi.fn();
-const saveModels = vi.fn();
+const mocks = vi.hoisted(() => ({
+  toggleProvider: vi.fn(),
+  updateProvider: vi.fn(),
+  updateProviderKey: vi.fn(),
+  deleteProvider: vi.fn(),
+  addProviderKey: vi.fn(),
+  deleteProviderKey: vi.fn(),
+  toggleProviderKey: vi.fn(),
+  validateProviderKey: vi.fn(),
+  toggleModel: vi.fn(),
+  updateModelParams: vi.fn(),
+  fetchRemoteModels: vi.fn(),
+  saveModels: vi.fn(),
+  setSelectedProviderId: vi.fn(),
+  invoke: vi.fn(),
+  testModel: vi.fn(),
+}));
 
-let provider = {
-  id: 'provider-1',
-  name: 'OpenAI',
-  provider_type: 'openai',
-  api_host: 'https://api.openai.com',
-  api_path: '/v1/chat/completions',
-  enabled: true,
-  models: [
-    {
-      provider_id: 'provider-1',
-      model_id: 'gpt-5.4',
-      name: 'GPT 5.4',
-      group_name: 'gpt-5.4',
-      model_type: 'Chat',
-      capabilities: ['TextChat'],
-      max_tokens: null,
-      enabled: true,
-      param_overrides: null,
-    },
-  ],
-  keys: [],
-  proxy_config: null,
-  sort_order: 0,
-  created_at: 0,
-  updated_at: 0,
-};
+function createProviderFixture(): ProviderConfig {
+  return {
+    id: 'provider-1',
+    name: 'OpenAI',
+    provider_type: 'openai',
+    api_host: 'https://api.openai.com',
+    api_path: '/v1/chat/completions',
+    enabled: true,
+    custom_headers: null,
+    icon: null,
+    builtin_id: null,
+    models: [
+      {
+        provider_id: 'provider-1',
+        model_id: 'gpt-5.4',
+        name: 'GPT 5.4',
+        group_name: 'gpt-5.4',
+        model_type: 'Chat',
+        capabilities: ['TextChat'],
+        max_tokens: null,
+        enabled: true,
+        param_overrides: null,
+      },
+    ],
+    keys: [],
+    proxy_config: null,
+    sort_order: 0,
+    created_at: 0,
+    updated_at: 0,
+  };
+}
+
+let provider: ProviderConfig = createProviderFixture();
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -54,58 +68,80 @@ vi.mock('@lobehub/icons', () => ({
   ModelIcon: () => <div>model-icon</div>,
 }));
 
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count, getItemKey }: { count: number; getItemKey?: (index: number) => string }) => ({
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, index) => ({
+        index,
+        key: getItemKey ? getItemKey(index) : index,
+        start: index * 48,
+      })),
+    getTotalSize: () => count * 48,
+    measure: () => {},
+    measureElement: () => {},
+  }),
+}));
+
 vi.mock('../IconPickerModal', () => ({
   default: () => null,
+}));
+
+vi.mock('@/components/shared/IconEditor', () => ({
+  IconEditor: () => <div>icon-editor</div>,
+}));
+
+vi.mock('@/components/shared/DynamicLobeIcon', () => ({
+  DynamicLobeIcon: () => <div>dynamic-lobe-icon</div>,
+}));
+
+vi.mock('@/components/common/ModelParamSliders', () => ({
+  ModelParamSliders: () => <div>model-param-sliders</div>,
+}));
+
+vi.mock('@/components/common/CopyButton', () => ({
+  CopyButton: () => <button type="button">copy-button</button>,
+}));
+
+vi.mock('@/lib/providerIcons', () => ({
+  SmartProviderIcon: () => <div>smart-provider-icon</div>,
+}));
+
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: mocks.invoke,
 }));
 
 vi.mock('@/stores', () => ({
   useProviderStore: (selector: (state: Record<string, unknown>) => unknown) =>
     selector({
       providers: [provider],
-      toggleProvider,
-      updateProvider,
-      deleteProvider,
-      addProviderKey,
-      deleteProviderKey,
-      toggleProviderKey,
-      validateProviderKey,
-      toggleModel,
-      updateModelParams,
-      fetchRemoteModels,
-      saveModels,
+      toggleProvider: mocks.toggleProvider,
+      updateProvider: mocks.updateProvider,
+      updateProviderKey: mocks.updateProviderKey,
+      deleteProvider: mocks.deleteProvider,
+      addProviderKey: mocks.addProviderKey,
+      deleteProviderKey: mocks.deleteProviderKey,
+      toggleProviderKey: mocks.toggleProviderKey,
+      validateProviderKey: mocks.validateProviderKey,
+      toggleModel: mocks.toggleModel,
+      updateModelParams: mocks.updateModelParams,
+      fetchRemoteModels: mocks.fetchRemoteModels,
+      saveModels: mocks.saveModels,
+      testModel: mocks.testModel,
+    }),
+  useUIStore: (selector: (state: Record<string, unknown>) => unknown) =>
+    selector({
+      setSelectedProviderId: mocks.setSelectedProviderId,
     }),
 }));
 
 describe('ProviderDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    provider = {
-      id: 'provider-1',
-      name: 'OpenAI',
-      provider_type: 'openai',
-      api_host: 'https://api.openai.com',
-      api_path: '/v1/chat/completions',
-      enabled: true,
-      models: [
-        {
-          provider_id: 'provider-1',
-          model_id: 'gpt-5.4',
-          name: 'GPT 5.4',
-          group_name: 'gpt-5.4',
-          model_type: 'Chat',
-          capabilities: ['TextChat'],
-          max_tokens: null,
-          enabled: true,
-          param_overrides: null,
-        },
-      ],
-      keys: [],
-      proxy_config: null,
-      sort_order: 0,
-      created_at: 0,
-      updated_at: 0,
-    };
-    saveModels.mockResolvedValue(undefined);
+    provider = createProviderFixture();
+    mocks.saveModels.mockResolvedValue(undefined);
+    mocks.fetchRemoteModels.mockResolvedValue([]);
+    mocks.updateProviderKey.mockResolvedValue(undefined);
+    mocks.invoke.mockResolvedValue('sk-test-secret');
 
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
@@ -129,16 +165,17 @@ describe('ProviderDetail', () => {
       </App>,
     );
 
-    await userEvent.click(screen.getByRole('button', { name: '添加模型' }));
+    await userEvent.click(screen.getByRole('button', { name: 'settings.addModel' }));
 
     const dialog = await screen.findByRole('dialog');
     const inputs = within(dialog).getAllByRole('textbox');
     await userEvent.type(inputs[0], 'gpt-5.4-think');
+    await userEvent.clear(inputs[1]);
     await userEvent.type(inputs[1], 'GPT 5.4 Think');
 
-    await userEvent.click(within(dialog).getByRole('button', { name: '添加模型' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'settings.addModel' }));
 
-    expect(saveModels).toHaveBeenCalledWith(
+    expect(mocks.saveModels).toHaveBeenCalledWith(
       'provider-1',
       expect.arrayContaining([
         expect.objectContaining({
@@ -158,10 +195,103 @@ describe('ProviderDetail', () => {
       </App>,
     );
 
-    await userEvent.click(screen.getByRole('button', { name: '添加到当前分组' }));
+    await userEvent.click(screen.getByRole('button', { name: 'settings.addModelToGroup' }));
 
     const dialog = await screen.findByRole('dialog');
-    const inputs = within(dialog).getAllByRole('textbox');
-    expect(inputs[2]).toHaveValue('gpt-5.4');
+    expect(within(dialog).getByDisplayValue('gpt-5.4')).toBeInTheDocument();
+  });
+
+  it('syncs remote models without overwriting existing local model settings', async () => {
+    provider.models = [
+      {
+        provider_id: 'provider-1',
+        model_id: 'gpt-5.4',
+        name: 'Local GPT 5.4',
+        group_name: 'local-group',
+        model_type: 'Chat',
+        capabilities: ['TextChat', 'Reasoning'],
+        max_tokens: 16000,
+        enabled: false,
+        param_overrides: { temperature: 0.1, top_p: 0.8 },
+      },
+      {
+        provider_id: 'provider-1',
+        model_id: 'legacy-model',
+        name: 'Legacy Model',
+        group_name: 'legacy',
+        model_type: 'Chat',
+        capabilities: ['TextChat'],
+        max_tokens: 4000,
+        enabled: true,
+        param_overrides: null,
+      },
+    ];
+
+    mocks.fetchRemoteModels.mockResolvedValue([
+      {
+        provider_id: 'provider-1',
+        model_id: 'gpt-5.4',
+        name: 'Remote GPT 5.4',
+        group_name: 'remote-group',
+        model_type: 'Chat',
+        capabilities: ['TextChat'],
+        max_tokens: 32000,
+        enabled: true,
+        param_overrides: null,
+      },
+      {
+        provider_id: 'provider-1',
+        model_id: 'gpt-5.4-mini',
+        name: 'Remote GPT 5.4 Mini',
+        group_name: 'remote-group',
+        model_type: 'Chat',
+        capabilities: ['TextChat'],
+        max_tokens: 8000,
+        enabled: true,
+        param_overrides: null,
+      },
+    ]);
+
+    render(
+      <App>
+        <ProviderDetail providerId="provider-1" />
+      </App>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'settings.syncModels' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('checkbox', { name: 'gpt-5.4' })).toBeChecked();
+    expect(within(dialog).getByRole('checkbox', { name: 'legacy-model' })).toBeChecked();
+    expect(within(dialog).getByRole('checkbox', { name: 'gpt-5.4-mini' })).not.toBeChecked();
+    expect(within(dialog).getByText('settings.remoteMissing')).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'gpt-5.4-mini' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'settings.applyModelSync' }));
+
+    await waitFor(() => {
+      expect(mocks.saveModels).toHaveBeenCalledWith(
+        'provider-1',
+        expect.arrayContaining([
+          expect.objectContaining({
+            model_id: 'gpt-5.4',
+            name: 'Local GPT 5.4',
+            group_name: 'local-group',
+            enabled: false,
+            param_overrides: { temperature: 0.1, top_p: 0.8 },
+          }),
+          expect.objectContaining({
+            model_id: 'legacy-model',
+            name: 'Legacy Model',
+            group_name: 'legacy',
+          }),
+          expect.objectContaining({
+            model_id: 'gpt-5.4-mini',
+            name: 'Remote GPT 5.4 Mini',
+            group_name: 'remote-group',
+          }),
+        ]),
+      );
+    });
   });
 });

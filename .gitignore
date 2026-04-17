@@ -38,6 +38,7 @@ target/
 task_plan.md
 findings.md
 progress.md
+docs/superpowers/*
 
 # Local git worktrees
 .worktrees/

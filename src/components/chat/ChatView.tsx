@@ -27,6 +27,7 @@ import { InputArea } from './InputArea';
 import { ModelSelector } from './ModelSelector';
 import { parseSearchContent } from '@/lib/searchUtils';
 import { CHAT_CUSTOM_HTML_TAGS, parseChatMarkdown, stripAqbotTags, type ChatMarkdownNode } from '@/lib/chatMarkdown';
+import { shouldRenderStandaloneAssistantError } from '@/lib/chatMultiModel';
 import { WebSearchNode } from './WebSearchNode';
 import { MemoryRetrievalNode } from './MemoryRetrievalNode';
 import { KnowledgeRetrievalNode } from './KnowledgeRetrievalNode';
@@ -2987,6 +2988,23 @@ export function ChatView() {
       ? (displayModeOverrides.get(parentId) ?? settings.multi_model_display_mode ?? 'tabs')
       : 'tabs';
     const isNonTabsMultiModel = hasMultiModels && effectiveDisplayMode !== 'tabs';
+    const renderVersionContent = (versionMessage: Message, isVersionStreaming: boolean) => {
+      const versionContent = buildAssistantDisplayContent(versionMessage, activeMessages);
+      if (versionMessage.status === 'error') {
+        return <Alert type="error" message={versionContent} showIcon />;
+      }
+      return (
+        <AssistantMarkdown
+          content={versionContent}
+          isDarkMode={isDarkMode}
+          isStreaming={isVersionStreaming}
+          codeBlockDarkTheme={codeBlockDarkTheme}
+          codeBlockLightTheme={codeBlockLightTheme}
+          codeBlockThemes={codeBlockThemes}
+          codeFontFamily={settings.code_font_family || undefined}
+        />
+      );
+    };
 
     return {
       placement: 'start' as const,
@@ -2995,10 +3013,6 @@ export function ChatView() {
       loading: bubbleLoading,
       contentRender: (content: string) => {
         const msgMarker = <span data-aqbot-msg={msg?.id} style={{ height: 0, overflow: 'hidden', lineHeight: 0 }} />;
-        if (msg?.status === 'error') {
-          return <>{msgMarker}<Alert type="error" message={content} showIcon /></>;
-        }
-
         // Multi-model non-tabs mode: render all versions in side-by-side or stacked layout
         if (isNonTabsMultiModel && parentId && activeConversationId) {
           // Prefer ref-based versions (from AssistantFooter DB query, includes inactive)
@@ -3023,20 +3037,14 @@ export function ChatView() {
                 streamingMessageId={streamingMessageId}
                 multiModelDoneMessageIds={multiModelDoneMessageIds}
                 getModelDisplayInfo={getModelDisplayInfo}
-                renderContent={(vMsg, isVersionStreaming) => (
-                  <AssistantMarkdown
-                    content={buildAssistantDisplayContent(vMsg, activeMessages)}
-                    isDarkMode={isDarkMode}
-                    isStreaming={isVersionStreaming}
-                    codeBlockDarkTheme={codeBlockDarkTheme}
-                    codeBlockLightTheme={codeBlockLightTheme}
-                    codeBlockThemes={codeBlockThemes}
-                    codeFontFamily={settings.code_font_family || undefined}
-                  />
-                )}
+                renderContent={renderVersionContent}
               />
             </>
           );
+        }
+
+        if (shouldRenderStandaloneAssistantError(msg?.status, isNonTabsMultiModel)) {
+          return <>{msgMarker}<Alert type="error" message={content} showIcon /></>;
         }
 
         // In multi-model mode we disabled Bubble's built-in loading to keep

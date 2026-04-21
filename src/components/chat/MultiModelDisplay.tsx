@@ -7,6 +7,7 @@ import { OverlayScrollbars } from 'overlayscrollbars';
 import type { Message } from '@/types';
 import { CopyButton } from '@/components/common/CopyButton';
 import { stripAqbotTags } from '@/lib/chatMarkdown';
+import { getLatestVersionsByModel } from '@/lib/chatMultiModel';
 
 export type MultiModelDisplayMode = 'tabs' | 'side-by-side' | 'stacked';
 
@@ -103,17 +104,7 @@ function MultiModelDisplayInner({
   token,
   t,
 }: MultiModelDisplayInnerProps) {
-  const latestByModel = useMemo(() => {
-    const modelMap = new Map<string, Message>();
-    for (const v of versions) {
-      const key = v.model_id ?? '__unknown__';
-      const existing = modelMap.get(key);
-      if (!existing || v.version_index > existing.version_index) {
-        modelMap.set(key, v);
-      }
-    }
-    return Array.from(modelMap.values());
-  }, [versions]);
+  const latestByModel = useMemo(() => getLatestVersionsByModel(versions), [versions]);
 
   const parentMessageId = versions[0]?.parent_message_id;
 

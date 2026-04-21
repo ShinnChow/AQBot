@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import { invoke, listen, type UnlistenFn, isTauri } from '@/lib/invoke';
 import { supportsReasoning, findModelByIds } from '@/lib/modelCapabilities';
+import {
+  insertModelVersionPlaceholder,
+  mergeAssistantVersionsAfterSwitch,
+} from '@/lib/chatMultiModel';
 import { formatSearchContent, buildSearchTag } from '@/lib/searchUtils';
 import { buildKnowledgeTag, buildMemoryTag, type RagContextRetrievedEvent } from '@/lib/memoryUtils';
 import { useProviderStore } from '@/stores/providerStore';
@@ -1142,6 +1146,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
   sendMessage: async (content, attachments = [], searchProviderId = null) => {
     const conversationId = get().activeConversationId;
     if (!conversationId) throw new Error('No active conversation');
+    const activeConversation = get().conversations.find((conversation) => conversation.id === conversationId);
 
     // Optimistically add user message BEFORE backend call
     const optimisticUserMsg: Message = {
@@ -1186,8 +1191,8 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       conversation_id: conversationId,
       role: 'assistant',
       content: placeholderContent,
-      provider_id: null,
-      model_id: null,
+      provider_id: activeConversation?.provider_id ?? null,
+      model_id: activeConversation?.model_id ?? null,
       token_count: null,
       attachments: [],
       thinking: null,
@@ -1655,7 +1660,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       created_at: originalAiMsg?.created_at ?? Date.now(),
       parent_message_id: userMsg.id,
       version_index: 0,
-      is_active: true,
+      is_active: false,
       status: 'partial',
     };
 
@@ -1765,26 +1770,10 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       status: 'partial',
     };
 
-    // Replace the active AI message in-place with placeholder
+    // Keep the current active answer visible while the new model streams in.
     set((s) => {
-      let inserted = false;
-      const updated: Message[] = [];
-      for (const m of s.messages) {
-        if (m.parent_message_id === parentId && m.is_active) {
-          updated.push({ ...m, is_active: false });
-          if (!inserted) {
-            updated.push(placeholderAssistant);
-            inserted = true;
-          }
-        } else {
-          updated.push(m);
-        }
-      }
-      if (!inserted) {
-        updated.push(placeholderAssistant);
-      }
       return {
-        messages: updated,
+        messages: insertModelVersionPlaceholder(s.messages, parentId, placeholderAssistant),
         streaming: true,
         streamingMessageId: tempAssistantId,
         streamingConversationId: conversationId,
@@ -2561,30 +2550,14 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       // (multiModelResponseParents) which needs multiple versions visible.
       const versions = await get().listMessageVersions(conversationId, parentMessageId);
       if (versions.length > 0) {
-        set((s) => {
-          const versionMap = new Map(versions.map(v => [v.id, v]));
-          const existingIds = new Set(
-            s.messages
-              .filter(m => m.parent_message_id === parentMessageId && m.role === 'assistant')
-              .map(m => m.id),
-          );
-          // Update existing versions in-place
-          const updatedMessages = s.messages.map((m) => {
-            if (m.parent_message_id !== parentMessageId || m.role !== 'assistant') return m;
-            const dbVersion = versionMap.get(m.id);
-            if (dbVersion) {
-              return { ...dbVersion, is_active: m.id === messageId };
-            }
-            return { ...m, is_active: m.id === messageId };
-          });
-          // Add any DB versions not already in store
-          for (const v of versions) {
-            if (!existingIds.has(v.id)) {
-              updatedMessages.push({ ...v, is_active: v.id === messageId });
-            }
-          }
-          return { messages: updatedMessages };
-        });
+        set((s) => ({
+          messages: mergeAssistantVersionsAfterSwitch(
+            s.messages,
+            parentMessageId,
+            versions,
+            messageId,
+          ),
+        }));
       }
     } catch (e) {
       set({ error: String(e) });

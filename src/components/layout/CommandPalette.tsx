@@ -3,6 +3,7 @@ import { Modal, Input, List, Tag, Typography, theme } from 'antd';
 import { Search, MessageSquare, Settings, Network, Plus, PanelLeftClose, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '@/stores';
+import { formatShortcutForDisplay } from '@/lib/shortcuts';
 
 export interface CommandPaletteProps {
   open: boolean;
@@ -32,6 +33,9 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     const nav = t('commandPalette.navigation');
     const actions = t('commandPalette.actions');
     const settings = t('commandPalette.settings');
+    const openSettingsShortcut = formatShortcutForDisplay('CmdOrCtrl+,');
+    const newConversationShortcut = formatShortcutForDisplay('CmdOrCtrl+N');
+    const searchConversationsShortcut = formatShortcutForDisplay('CmdOrCtrl+F');
 
     return [
       {
@@ -45,7 +49,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         id: 'go-settings',
         label: t('commandPalette.goToSettings'),
         icon: <Settings size={16} />,
-        shortcut: '⌘,',
+        shortcut: openSettingsShortcut,
         category: nav,
         action: () => { setActivePage('settings'); onClose(); },
       },
@@ -67,7 +71,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         id: 'new-conversation',
         label: t('commandPalette.newConversation'),
         icon: <Plus size={16} />,
-        shortcut: '⌘N',
+        shortcut: newConversationShortcut,
         category: actions,
         action: () => { setActivePage('chat'); onClose(); },
       },
@@ -82,7 +86,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         id: 'search-conversations',
         label: t('commandPalette.searchConversations'),
         icon: <Search size={16} />,
-        shortcut: '⌘F',
+        shortcut: searchConversationsShortcut,
         category: actions,
         action: () => { setActivePage('chat'); onClose(); },
       },

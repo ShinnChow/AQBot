@@ -255,8 +255,21 @@ html[data-theme="dark"] .os-theme-aqbot {
 .chat-scroll-indicator {
   background: rgba(0, 0, 0, 0.12);
 }
+.chat-scroll-indicator-track:hover .chat-scroll-indicator {
+  background: rgba(0, 0, 0, 0.18);
+}
+.chat-scroll-indicator-track.is-dragging .chat-scroll-indicator {
+  background: rgba(0, 0, 0, 0.28);
+  cursor: grabbing !important;
+}
 html[data-theme="dark"] .chat-scroll-indicator {
   background: rgba(255, 255, 255, 0.12);
+}
+html[data-theme="dark"] .chat-scroll-indicator-track:hover .chat-scroll-indicator {
+  background: rgba(255, 255, 255, 0.18);
+}
+html[data-theme="dark"] .chat-scroll-indicator-track.is-dragging .chat-scroll-indicator {
+  background: rgba(255, 255, 255, 0.28);
 }
 
 /* Custom action item hover style (for actionRender items in @ant-design/x Actions) */

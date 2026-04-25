@@ -2196,6 +2196,7 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
               <div
                 ref={pickerListParentRef}
                 className="model-picker-list"
+                data-os-scrollbar
                 style={{ maxHeight: 420, overflow: 'auto', padding: '8px 16px 12px' }}
               >
                 <div style={{ height: pickerVirtualizer.getTotalSize(), position: 'relative' }}>
@@ -2259,7 +2260,6 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                     // model row
                     const { item } = row;
                     const { model: m } = item;
-                    const statusConfig = MODEL_SYNC_STATUS_CONFIG[item.status];
                     return (
                       <div
                         key={`m-${m.model_id}`}
@@ -2290,9 +2290,11 @@ export function ProviderDetail({ providerId }: ProviderDetailProps) {
                               {m.name && m.name !== m.model_id && (
                                 <Text type="secondary" style={{ fontSize: 11 }}>({m.model_id})</Text>
                               )}
-                              <Tag color={statusConfig.color} style={{ marginInlineStart: 4 }}>
-                                {t(statusConfig.labelKey)}
-                              </Tag>
+                              {item.status === 'local-only' && (
+                                <Tag color={MODEL_SYNC_STATUS_CONFIG['local-only'].color} style={{ marginInlineStart: 4 }}>
+                                  {t(MODEL_SYNC_STATUS_CONFIG['local-only'].labelKey)}
+                                </Tag>
+                              )}
                             </div>
                             {item.localModel && item.remoteModel && item.localModel.name !== item.remoteModel.name && (
                               <Text type="secondary" style={{ fontSize: 11 }}>

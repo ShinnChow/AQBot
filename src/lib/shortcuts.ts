@@ -114,8 +114,6 @@ export const DEFAULT_SHORTCUT_BINDINGS: Record<ShortcutAction, string> = {
 };
 
 const DISPLAY_MAP: Record<string, string> = {
-  CmdOrCtrl: '⌘',
-  CommandOrControl: '⌘',
   Shift: '⇧',
   Alt: '⌥',
   Control: '⌃',
@@ -129,6 +127,21 @@ const DISPLAY_MAP: Record<string, string> = {
   ArrowRight: '→',
   Space: '␣',
 };
+
+function isMacPlatform(): boolean {
+  if (typeof navigator === 'undefined') return true;
+  const platform = navigator.platform || '';
+  if (/Mac|iPhone|iPad|iPod/i.test(platform)) return true;
+  const userAgent = navigator.userAgent || '';
+  return /Mac OS/i.test(userAgent) && !/Windows|Linux|Android/i.test(userAgent);
+}
+
+function getDisplayToken(token: string): string {
+  if (token === 'CmdOrCtrl' || token === 'CommandOrControl') {
+    return isMacPlatform() ? '⌘' : 'Ctrl';
+  }
+  return DISPLAY_MAP[token] ?? token;
+}
 
 function normalizeModifierToken(token: string): string {
   switch (token) {
@@ -181,7 +194,7 @@ export function getShortcutBindingByKey(settings: AppSettings, key: ShortcutSett
 }
 
 export function formatShortcutForDisplay(binding: string): string {
-  return tokenize(binding).map((part) => DISPLAY_MAP[part] ?? part).join(' + ');
+  return tokenize(binding).map(getDisplayToken).join(' + ');
 }
 
 function normalizeEventKey(key: string): string {

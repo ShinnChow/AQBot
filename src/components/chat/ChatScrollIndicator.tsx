@@ -16,6 +16,10 @@ interface ScrollMetrics {
   isReversed: boolean;
 }
 
+interface ChatScrollIndicatorProps {
+  onUserScrollIntent?: () => void;
+}
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
@@ -45,7 +49,7 @@ function measureThumb(el: HTMLElement): ScrollMetrics | null {
  *
  * The indicator auto-shows on hover/scroll and fades out after inactivity.
  */
-function ChatScrollIndicatorInner() {
+function ChatScrollIndicatorInner({ onUserScrollIntent }: ChatScrollIndicatorProps) {
   const [thumb, setThumb] = useState<ThumbState>({ top: 0, height: 0, opacity: 0, canScroll: false });
   const [dragging, setDragging] = useState(false);
   const hideTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -120,11 +124,12 @@ function ChatScrollIndicatorInner() {
   }, [updateThumb]);
 
   const beginDrag = useCallback(() => {
+    onUserScrollIntent?.();
     draggingRef.current = true;
     setDragging(true);
     clearHideTimer();
     updateThumb(true);
-  }, [clearHideTimer, updateThumb]);
+  }, [clearHideTimer, onUserScrollIntent, updateThumb]);
 
   const handleThumbPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (!thumb.canScroll) return;
@@ -175,6 +180,7 @@ function ChatScrollIndicatorInner() {
     if (!dragging) return;
 
     const handlePointerMove = (event: PointerEvent) => {
+      onUserScrollIntent?.();
       event.preventDefault();
       scrollToPointer(event.clientY, dragOffsetRef.current);
     };
@@ -195,7 +201,7 @@ function ChatScrollIndicatorInner() {
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerUp);
     };
-  }, [dragging, scheduleHide, scrollToPointer, updateThumb]);
+  }, [dragging, onUserScrollIntent, scheduleHide, scrollToPointer, updateThumb]);
 
   return (
     <div

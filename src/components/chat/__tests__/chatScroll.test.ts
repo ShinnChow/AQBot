@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CHAT_AUTO_SCROLL_BOTTOM_THRESHOLD,
   CHAT_SCROLL_IS_REVERSED,
   getDistanceToHistoryTop,
   getScrollTopAfterPrepend,
@@ -11,8 +12,14 @@ import {
 } from '../chatScroll';
 
 describe('chat scroll helpers', () => {
-  it('exposes the chat bubble list as a reversed scroll container', () => {
-    expect(CHAT_SCROLL_IS_REVERSED).toBe(true);
+  it('exposes the chat bubble list as a normal scroll container when Bubble.List autoScroll is disabled', () => {
+    expect(CHAT_SCROLL_IS_REVERSED).toBe(false);
+  });
+
+  it('uses the app scroll mode to show the bottom button when the user leaves the latest message area', () => {
+    expect(shouldShowScrollToBottom(2000, 1200, 800, CHAT_SCROLL_IS_REVERSED)).toBe(false);
+    expect(shouldShowScrollToBottom(2000, 1040, 800, CHAT_SCROLL_IS_REVERSED)).toBe(false);
+    expect(shouldShowScrollToBottom(2000, 900, 800, CHAT_SCROLL_IS_REVERSED)).toBe(true);
   });
 
   it('treats reversed bubble scroll near zero as the latest-message position', () => {
@@ -28,9 +35,12 @@ describe('chat scroll helpers', () => {
   });
 
   it('stops auto-scroll as soon as the user meaningfully leaves the bottom', () => {
+    expect(CHAT_AUTO_SCROLL_BOTTOM_THRESHOLD).toBe(8);
     expect(shouldKeepAutoScroll(2000, 0, 800, true)).toBe(true);
+    expect(shouldKeepAutoScroll(2000, -7, 800, true)).toBe(true);
     expect(shouldKeepAutoScroll(2000, -12, 800, true)).toBe(false);
     expect(shouldKeepAutoScroll(2000, 1200, 800, false)).toBe(true);
+    expect(shouldKeepAutoScroll(2000, 1193, 800, false)).toBe(true);
     expect(shouldKeepAutoScroll(2000, 1180, 800, false)).toBe(false);
   });
 
@@ -62,6 +72,13 @@ describe('chat scroll helpers', () => {
       { scrollHeight: 1200, clientHeight: 800 },
       { scrollHeight: 1280, clientHeight: 800 },
       false,
+    )).toBe(false);
+
+    expect(shouldStickToBottomOnLayoutChange(
+      { scrollHeight: 1200, clientHeight: 800 },
+      { scrollHeight: 1280, clientHeight: 800 },
+      true,
+      true,
     )).toBe(false);
   });
 

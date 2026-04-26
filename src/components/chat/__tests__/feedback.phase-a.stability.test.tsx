@@ -11,12 +11,15 @@ describe('Phase A feedback regressions', () => {
     vi.clearAllMocks();
   });
 
-  it('keeps chat scroll handling aligned with Bubble.List reversed layout instead of hard-coding false', () => {
-    const source = readSource('src/components/chat/ChatView.tsx');
-    expect(source).toContain('CHAT_SCROLL_IS_REVERSED');
-    expect(source).not.toContain('shouldShowScrollToBottom(\n      target.scrollHeight,\n      target.scrollTop,\n      target.clientHeight,\n      false,');
-    expect(source).not.toContain('shouldKeepAutoScroll(\n      target.scrollHeight,\n      target.scrollTop,\n      target.clientHeight,\n      false,');
-    expect(source).not.toContain('getDistanceToHistoryTop(\n      target.scrollHeight,\n      target.scrollTop,\n      target.clientHeight,\n      false,');
+  it('keeps chat scroll handling aligned with the shared Bubble.List scroll mode', () => {
+    const chatViewSource = readSource('src/components/chat/ChatView.tsx');
+    const chatScrollSource = readSource('src/components/chat/chatScroll.ts');
+
+    expect(chatScrollSource).toContain('CHAT_SCROLL_IS_REVERSED = false');
+    expect(chatViewSource).toContain('CHAT_SCROLL_IS_REVERSED');
+    expect(chatViewSource).not.toContain('shouldShowScrollToBottom(\n      target.scrollHeight,\n      target.scrollTop,\n      target.clientHeight,\n      false,');
+    expect(chatViewSource).not.toContain('shouldKeepAutoScroll(\n      target.scrollHeight,\n      target.scrollTop,\n      target.clientHeight,\n      false,');
+    expect(chatViewSource).not.toContain('getDistanceToHistoryTop(\n      target.scrollHeight,\n      target.scrollTop,\n      target.clientHeight,\n      false,');
   });
 
   it('gives the chat textarea a dedicated visible-scrollbar hook instead of relying on globally hidden scrollbars', () => {

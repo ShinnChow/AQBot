@@ -1,4 +1,6 @@
-export const CHAT_SCROLL_IS_REVERSED = true;
+export const CHAT_SCROLL_IS_REVERSED = false;
+export const CHAT_AUTO_SCROLL_BOTTOM_THRESHOLD = 8;
+export const CHAT_SCROLL_TO_BOTTOM_VISIBILITY_THRESHOLD = 160;
 
 export function getDistanceToHistoryTop(
   scrollHeight: number,
@@ -39,9 +41,12 @@ export function shouldStickToBottomOnLayoutChange(
   previous: ScrollLayoutMetrics,
   next: ScrollLayoutMetrics,
   wasStickingToBottom: boolean,
+  hadRecentUserScrollIntent = false,
   threshold = 1,
 ) {
-  return wasStickingToBottom && hasScrollLayoutMetricsChanged(previous, next, threshold);
+  return wasStickingToBottom
+    && !hadRecentUserScrollIntent
+    && hasScrollLayoutMetricsChanged(previous, next, threshold);
 }
 
 export function shouldIgnoreScrollDepartureFromBottom(
@@ -58,7 +63,7 @@ export function shouldShowScrollToBottom(
   scrollTop: number,
   clientHeight: number,
   isReversed: boolean,
-  threshold = 160,
+  threshold = CHAT_SCROLL_TO_BOTTOM_VISIBILITY_THRESHOLD,
 ) {
   if (isReversed) {
     return scrollTop < -threshold;
@@ -71,7 +76,7 @@ export function shouldKeepAutoScroll(
   scrollTop: number,
   clientHeight: number,
   isReversed: boolean,
-  threshold = 8,
+  threshold = CHAT_AUTO_SCROLL_BOTTOM_THRESHOLD,
 ) {
   if (isReversed) {
     return scrollTop >= -threshold;

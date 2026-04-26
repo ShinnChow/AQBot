@@ -37,6 +37,7 @@ import { MemoryRetrievalNode } from './MemoryRetrievalNode';
 import { KnowledgeRetrievalNode } from './KnowledgeRetrievalNode';
 import { McpContainerNode } from './McpContainerNode';
 import {
+  CHAT_AUTO_SCROLL_BOTTOM_THRESHOLD,
   CHAT_SCROLL_IS_REVERSED,
   getDistanceToHistoryTop,
   getScrollTopAfterPrepend,
@@ -87,6 +88,7 @@ const CHAT_RENDER_BATCH_PROPS = {
   maxLiveNodes: Infinity,
   liveNodeBuffer: 24,
 } as const;
+const USER_SCROLL_INTENT_GRACE_MS = 250;
 
 // ── Attachment preview component ────────────────────────────────────────
 
@@ -2058,6 +2060,13 @@ export function ChatView() {
     lastUserScrollIntentAtRef.current = Date.now();
   }, []);
 
+  const setStickToBottomState = useCallback((nextStickToBottom: boolean) => {
+    stickToBottomRef.current = nextStickToBottom;
+    setStickToBottom((prev) => (
+      prev === nextStickToBottom ? prev : nextStickToBottom
+    ));
+  }, []);
+
   // Keep scrollBoxRef in sync with bubbleListRef
   useEffect(() => {
     scrollBoxRef.current = (bubbleListRef.current?.scrollBoxNativeElement as HTMLElement) ?? null;
@@ -2121,10 +2130,10 @@ export function ChatView() {
   useEffect(() => {
     pendingScrollConversationIdRef.current = activeConversationId ?? null;
     setShowScrollToBottom(false);
-    setStickToBottom(true);
+    setStickToBottomState(true);
     scrollLayoutMetricsRef.current = { scrollHeight: 0, clientHeight: 0 };
     contentRendererMessageIdsRef.current.clear();
-  }, [activeConversationId]);
+  }, [activeConversationId, setStickToBottomState]);
 
   useEffect(() => {
     if (!streaming || !streamingMessageId) {
@@ -2239,9 +2248,9 @@ export function ChatView() {
       target.scrollTop,
       target.clientHeight,
       CHAT_SCROLL_IS_REVERSED,
-      1,
+      CHAT_AUTO_SCROLL_BOTTOM_THRESHOLD,
     );
-    const hadRecentUserScrollIntent = Date.now() - lastUserScrollIntentAtRef.current < 250;
+    const hadRecentUserScrollIntent = Date.now() - lastUserScrollIntentAtRef.current < USER_SCROLL_INTENT_GRACE_MS;
     if (shouldIgnoreScrollDepartureFromBottom(
       keepAutoScroll,
       stickToBottomRef.current,
@@ -2253,7 +2262,7 @@ export function ChatView() {
       return;
     }
     if (keepAutoScroll !== stickToBottomRef.current) {
-      setStickToBottom(keepAutoScroll);
+      setStickToBottomState(keepAutoScroll);
     }
     if (!hasOlderMessages || loading || loadingOlder) return;
     const distanceToHistoryTop = getDistanceToHistoryTop(
@@ -2264,13 +2273,13 @@ export function ChatView() {
     );
     if (distanceToHistoryTop > 24) return;
     void handleLoadOlderMessages();
-  }, [handleLoadOlderMessages, hasOlderMessages, loading, loadingOlder]);
+  }, [handleLoadOlderMessages, hasOlderMessages, loading, loadingOlder, setStickToBottomState]);
 
   const handleScrollToBottom = useCallback(() => {
     bubbleListRef.current?.scrollTo({ top: 'bottom', behavior: 'smooth' });
     setShowScrollToBottom(false);
-    setStickToBottom(true);
-  }, []);
+    setStickToBottomState(true);
+  }, [setStickToBottomState]);
 
   useEffect(() => {
     const scrollBox = scrollBoxRef.current;
@@ -2301,7 +2310,14 @@ export function ChatView() {
 
       scrollLayoutMetricsRef.current = nextMetrics;
 
-      if (shouldStickToBottomOnLayoutChange(previousMetrics, nextMetrics, stickToBottomRef.current)) {
+      const hadRecentUserScrollIntent = Date.now() - lastUserScrollIntentAtRef.current < USER_SCROLL_INTENT_GRACE_MS;
+
+      if (shouldStickToBottomOnLayoutChange(
+        previousMetrics,
+        nextMetrics,
+        stickToBottomRef.current,
+        hadRecentUserScrollIntent,
+      )) {
         bubbleListRef.current?.scrollTo({ top: 'bottom', behavior: 'auto' });
         setShowScrollToBottom(false);
         return;
@@ -2336,11 +2352,11 @@ export function ChatView() {
       setTimeout(() => {
         bubbleListRef.current?.scrollTo({ top: 'bottom', behavior: 'smooth' });
         setShowScrollToBottom(false);
-        setStickToBottom(true);
+        setStickToBottomState(true);
       }, 50);
     }
     prevStreamingRef.current = streaming;
-  }, [streaming]);
+  }, [setStickToBottomState, streaming]);
 
   // ── Export menu ────────────────────────────────────────────────────
   const exportMenuItems = useMemo(
@@ -3551,7 +3567,7 @@ export function ChatView() {
                 overflowX: 'hidden',
               }}
             />
-            <ChatScrollIndicator />
+            <ChatScrollIndicator onUserScrollIntent={markUserScrollIntent} />
             <MinimapScrollProvider scrollTo={minimapScrollTo} scrollBoxRef={scrollBoxRef}>
               <ChatMinimap />
             </MinimapScrollProvider>

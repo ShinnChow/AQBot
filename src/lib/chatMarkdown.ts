@@ -2,7 +2,7 @@ import { getMarkdown, parseMarkdownToStructure, type BaseNode } from 'stream-mar
 
 export type ChatMarkdownNode = BaseNode;
 
-export const CHAT_CUSTOM_HTML_TAGS = ['think', 'web-search', 'knowledge-retrieval', 'memory-retrieval', 'tool-call'] as const;
+export const CHAT_CUSTOM_HTML_TAGS = ['think', 'web-search', 'knowledge-retrieval', 'memory-retrieval', 'tool-call', 'img'] as const;
 
 /**
  * Strip all aqbot-injected custom tags (with `data-aqbot="1"` attribute) and

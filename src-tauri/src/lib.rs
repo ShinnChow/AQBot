@@ -251,6 +251,7 @@ pub fn run() {
             // files
             commands::files::upload_file,
             commands::files::download_file,
+            commands::files::fetch_remote_image,
             commands::files::list_files,
             commands::files::delete_file,
             // files page

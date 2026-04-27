@@ -61,6 +61,7 @@ import { ChatMinimap, MinimapScrollProvider } from './ChatMinimap';
 import { MultiModelDisplay, LayoutSwitcher, type MultiModelDisplayMode } from './MultiModelDisplay';
 import PermissionCard from './PermissionCard';
 import AskUserCard from './AskUserCard';
+import { ChatImageNode } from './ChatImageNode';
 
 import { invoke } from '@/lib/invoke';
 import { registerHighlight } from 'stream-markdown';
@@ -1023,7 +1024,7 @@ function ToolCallNode(props: NodeComponentProps<{
   );
 }
 
-setCustomComponents('chat', { think: ThinkNode, 'web-search': WebSearchNode, 'knowledge-retrieval': KnowledgeRetrievalNode, 'memory-retrieval': MemoryRetrievalNode, 'tool-call': ToolCallNode, d2: ChatD2Node, vmr_container: McpContainerNode });
+setCustomComponents('chat', { think: ThinkNode, 'web-search': WebSearchNode, 'knowledge-retrieval': KnowledgeRetrievalNode, 'memory-retrieval': MemoryRetrievalNode, 'tool-call': ToolCallNode, d2: ChatD2Node, vmr_container: McpContainerNode, image: ChatImageNode, img: ChatImageNode });
 
 const AssistantMarkdown = React.memo(function AssistantMarkdown({
   content,

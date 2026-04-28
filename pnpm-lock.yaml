@@ -93,8 +93,8 @@ importers:
         specifier: ^0.577.0
         version: 0.577.0(react@19.2.4)
       markstream-react:
-        specifier: link:../markstream-vue/packages/markstream-react
-        version: link:../markstream-vue/packages/markstream-react
+        specifier: link:./libs/markstream-vue/packages/markstream-react
+        version: link:libs/markstream-vue/packages/markstream-react
       overlayscrollbars:
         specifier: ^2.14.0
         version: 2.14.0
@@ -114,11 +114,11 @@ importers:
         specifier: ^0.0.15
         version: 0.0.15(react@19.2.4)(shiki@3.23.0)
       stream-markdown-parser:
-        specifier: link:../markstream-vue/packages/markdown-parser
-        version: link:../markstream-vue/packages/markdown-parser
+        specifier: link:./libs/markstream-vue/packages/markdown-parser
+        version: link:libs/markstream-vue/packages/markdown-parser
       stream-monaco:
-        specifier: link:../stream-monaco
-        version: link:../stream-monaco
+        specifier: link:./libs/stream-monaco
+        version: link:libs/stream-monaco
       zustand:
         specifier: ^5.0.12
         version: 5.0.12(@types/react@19.2.14)(immer@11.1.4)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))

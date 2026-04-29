@@ -1,7 +1,7 @@
 import { Button, Image, Spin, Tooltip, theme } from 'antd';
 import { AtSign, Focus, Pencil } from 'lucide-react';
 import type { CSSProperties } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@/lib/invoke';
 import type { DrawingImage } from '@/types';
@@ -49,11 +49,17 @@ function getImageTileStyle(image: DrawingImage): CSSProperties {
 
 function DrawingPreviewImage({
   image,
+  groupedPreview,
+  onOpenGroupedPreview,
+  onPreviewSourceReady,
   onUseAsReference,
   onEdit,
   onMaskEdit,
 }: {
   image: DrawingImage;
+  groupedPreview?: boolean;
+  onOpenGroupedPreview?: (image: DrawingImage) => void;
+  onPreviewSourceReady?: (imageId: string, src: string) => void;
   onUseAsReference?: (image: DrawingImage) => void;
   onEdit?: (image: DrawingImage) => void;
   onMaskEdit?: (image: DrawingImage) => void;
@@ -87,10 +93,25 @@ function DrawingPreviewImage({
     if (!shouldLoad) return undefined;
     let cancelled = false;
     invoke<string>('read_attachment_preview', { filePath: image.storage_path })
-      .then((data) => { if (!cancelled) setSrc(data); })
+      .then((data) => {
+        if (cancelled) return;
+        setSrc(data);
+        onPreviewSourceReady?.(image.id, data);
+      })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [image.storage_path, shouldLoad]);
+  }, [image.id, image.storage_path, onPreviewSourceReady, shouldLoad]);
+
+  const previewConfig = groupedPreview
+    ? {
+      mask: { blur: true },
+      scaleStep: 0.5,
+      open: false,
+      onOpenChange: (open: boolean) => {
+        if (open) onOpenGroupedPreview?.(image);
+      },
+    }
+    : { mask: { blur: true }, scaleStep: 0.5 };
 
   return (
     <div
@@ -127,7 +148,7 @@ function DrawingPreviewImage({
             objectFit: 'contain',
             borderRadius: IMAGE_CORNER_RADIUS,
           }}
-          preview={{ mask: { blur: true }, scaleStep: 0.5 }}
+          preview={previewConfig}
         />
       ) : shouldLoad ? (
         <div className="flex h-full items-center justify-center">
@@ -241,10 +262,53 @@ export function DrawingImageStrip({
   onEdit,
   onMaskEdit,
 }: Props) {
+  const previewCacheRef = useRef(new Map<string, string>());
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewCurrent, setPreviewCurrent] = useState(0);
+  const [previewItems, setPreviewItems] = useState<string[]>([]);
+  const groupedPreview = images.length > 1;
   const placeholders = useMemo(
     () => Array.from({ length: Math.max(placeholderCount, images.length, 1) }),
     [images.length, placeholderCount],
   );
+
+  useEffect(() => {
+    const imageIds = new Set(images.map((image) => image.id));
+    for (const imageId of previewCacheRef.current.keys()) {
+      if (!imageIds.has(imageId)) previewCacheRef.current.delete(imageId);
+    }
+  }, [images]);
+
+  const handlePreviewSourceReady = useCallback((imageId: string, src: string) => {
+    previewCacheRef.current.set(imageId, src);
+  }, []);
+
+  const readPreviewSource = useCallback(async (image: DrawingImage) => {
+    const cached = previewCacheRef.current.get(image.id);
+    if (cached) return cached;
+
+    const data = await invoke<string>('read_attachment_preview', { filePath: image.storage_path });
+    previewCacheRef.current.set(image.id, data);
+    return data;
+  }, []);
+
+  const handleOpenGroupedPreview = useCallback(async (selectedImage: DrawingImage) => {
+    const selectedIndex = Math.max(0, images.findIndex((image) => image.id === selectedImage.id));
+    const sources = await Promise.all(images.map(async (image, index) => {
+      try {
+        return { index, src: await readPreviewSource(image) };
+      } catch {
+        return null;
+      }
+    }));
+    const availableSources = sources.filter((source): source is { index: number; src: string } => Boolean(source));
+    if (availableSources.length === 0) return;
+
+    setPreviewItems(availableSources.map((source) => source.src));
+    setPreviewCurrent(Math.max(0, availableSources.findIndex((source) => source.index === selectedIndex)));
+    setPreviewOpen(true);
+  }, [images, readPreviewSource]);
+
   if (loading && images.length === 0) {
     return (
       <div className="drawing-image-strip flex w-full overflow-x-auto overflow-y-hidden rounded-md" style={{ gap: 7 }}>
@@ -255,16 +319,34 @@ export function DrawingImageStrip({
     );
   }
   return (
-    <div className="drawing-image-strip flex w-full overflow-x-auto overflow-y-hidden rounded-md" style={{ gap: 7 }}>
-      {images.map((image) => (
-        <DrawingPreviewImage
-          key={image.id}
-          image={image}
-          onUseAsReference={onUseAsReference}
-          onEdit={onEdit}
-          onMaskEdit={onMaskEdit}
+    <>
+      {groupedPreview && (
+        <Image.PreviewGroup
+          items={previewItems}
+          preview={{
+            open: previewOpen,
+            current: previewCurrent,
+            mask: { blur: true },
+            scaleStep: 0.5,
+            onOpenChange: (open) => setPreviewOpen(open),
+            onChange: (current) => setPreviewCurrent(current),
+          }}
         />
-      ))}
-    </div>
+      )}
+      <div className="drawing-image-strip flex w-full overflow-x-auto overflow-y-hidden rounded-md" style={{ gap: 7 }}>
+        {images.map((image) => (
+          <DrawingPreviewImage
+            key={image.id}
+            image={image}
+            groupedPreview={groupedPreview}
+            onOpenGroupedPreview={handleOpenGroupedPreview}
+            onPreviewSourceReady={handlePreviewSourceReady}
+            onUseAsReference={onUseAsReference}
+            onEdit={onEdit}
+            onMaskEdit={onMaskEdit}
+          />
+        ))}
+      </div>
+    </>
   );
 }

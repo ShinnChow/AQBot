@@ -13,8 +13,8 @@ interface Props {
   onUseAsReference?: (image: DrawingImage) => void;
 }
 
-const IMAGE_MAX_WIDTH = 250;
-const IMAGE_MAX_HEIGHT = 198;
+const IMAGE_MAX_WIDTH = 180;
+const IMAGE_MAX_HEIGHT = 300;
 const IMAGE_CORNER_RADIUS = 6;
 
 const placeholderTileStyle: CSSProperties = {

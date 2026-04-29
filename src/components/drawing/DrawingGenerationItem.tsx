@@ -57,7 +57,7 @@ function describeSize(value: string | undefined, t: (key: string, fallback: stri
   return describeDrawingSize(value);
 }
 
-const CONTEXT_THUMBNAIL_SIZE = 52;
+const CONTEXT_THUMBNAIL_SIZE = 32;
 
 function DrawingContextThumbnail({ filePath, label }: { filePath: string; label: string }) {
   const { token } = theme.useToken();

@@ -112,8 +112,8 @@ describe('DrawingImageStrip', () => {
     expect(strip).toHaveClass('w-full');
     expect(image).toHaveAttribute('loading', 'lazy');
     expect(tile).toHaveStyle({
-      width: '132px',
-      height: '198px',
+      width: '180px',
+      height: '270px',
       borderRadius: '6px',
       background: 'transparent',
     });
@@ -170,8 +170,8 @@ describe('DrawingImageStrip', () => {
 
     const placeholder = container.querySelector('.drawing-image-placeholder');
     expect(placeholder).toHaveStyle({
-      width: '250px',
-      height: '198px',
+      width: '180px',
+      height: '300px',
     });
     expect(placeholder?.querySelectorAll(':scope > div')).toHaveLength(1);
   });

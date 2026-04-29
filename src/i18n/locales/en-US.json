@@ -1240,6 +1240,8 @@
     "replacePromptTitle": "Replace current prompt?",
     "replacePromptContent": "The input already has content. Replace it with this history prompt?",
     "addReference": "Reference",
+    "useAsReference": "Use as reference",
+    "referenceAdded": "Added to references",
     "editMode": "Edit mode",
     "maskEditMode": "Area edit mode",
     "editPreview": "Edit preview",

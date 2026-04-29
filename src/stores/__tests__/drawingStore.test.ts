@@ -86,6 +86,41 @@ describe('drawingStore', () => {
     expect(useDrawingStore.getState().references.map((item) => item.id)).toEqual(['ref-1']);
   });
 
+  it('uses an existing generated image file as a drawing reference', async () => {
+    const { useDrawingStore } = await import('../drawingStore');
+
+    const reference = useDrawingStore.getState().useImageAsReference({
+      id: 'image-1',
+      generation_id: 'generation-1',
+      stored_file_id: 'stored-image-1',
+      storage_path: 'images/generated.png',
+      mime_type: 'image/png',
+      width: 1024,
+      height: 1024,
+      revised_prompt: null,
+      created_at: 1,
+    });
+    useDrawingStore.getState().useImageAsReference({
+      id: 'image-1',
+      generation_id: 'generation-1',
+      stored_file_id: 'stored-image-1',
+      storage_path: 'images/generated.png',
+      mime_type: 'image/png',
+      width: 1024,
+      height: 1024,
+      revised_prompt: null,
+      created_at: 1,
+    });
+
+    expect(reference).toMatchObject({
+      id: 'stored-image-1',
+      original_name: 'generated.png',
+      mime_type: 'image/png',
+      storage_path: 'images/generated.png',
+    });
+    expect(useDrawingStore.getState().references.map((item) => item.id)).toEqual(['stored-image-1']);
+  });
+
   it('adds a running generation immediately while generation is pending', async () => {
     let resolveGeneration: (value: any) => void = () => {};
     invokeMock.mockReturnValueOnce(new Promise((resolve) => {

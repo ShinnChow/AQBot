@@ -28,6 +28,7 @@ interface DrawingState {
   retryGeneration: (generation: DrawingGeneration) => Promise<DrawingGeneration>;
   deleteGeneration: (id: string, deleteResources?: boolean) => Promise<void>;
   selectImageForEdit: (image: DrawingImage | null, maskFile?: DrawingStoredFile | null, previewUrl?: string | null) => void;
+  useImageAsReference: (image: DrawingImage) => DrawingStoredFile;
   removeReference: (id: string) => void;
   clearReferences: () => void;
   clearError: () => void;
@@ -122,6 +123,16 @@ function createOptimisticGeneration(
     reference_files: context.referenceFiles ?? [],
     source_images: context.sourceImages ?? [],
     mask_file: context.maskFile ?? null,
+  };
+}
+
+function referenceFromDrawingImage(image: DrawingImage): DrawingStoredFile {
+  return {
+    id: image.stored_file_id,
+    original_name: image.storage_path.split('/').pop() || `${image.id}.png`,
+    mime_type: image.mime_type,
+    size_bytes: 0,
+    storage_path: image.storage_path,
   };
 }
 
@@ -301,6 +312,19 @@ export const useDrawingStore = create<DrawingState>((set, get) => ({
     editMaskFile: image ? maskFile : null,
     editPreviewUrl: image ? previewUrl : null,
   }),
+  useImageAsReference: (image) => {
+    const reference = referenceFromDrawingImage(image);
+    if (get().references.length >= 16 && !get().references.some((item) => item.id === reference.id)) {
+      throw new Error('Reference image count must not exceed 16');
+    }
+    set((s) => ({
+      references: s.references.some((item) => item.id === reference.id)
+        ? s.references
+        : [...s.references, reference],
+      error: null,
+    }));
+    return reference;
+  },
   removeReference: (id) => set((s) => ({ references: s.references.filter((item) => item.id !== id) })),
   clearReferences: () => set({ references: [] }),
   clearError: () => set({ error: null }),

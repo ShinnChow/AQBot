@@ -17,6 +17,7 @@ export function DrawingGenerationList({ onEdit, onMaskEdit, onUsePrompt }: Props
   const loading = useDrawingStore((s) => s.loading);
   const retryGeneration = useDrawingStore((s) => s.retryGeneration);
   const deleteGeneration = useDrawingStore((s) => s.deleteGeneration);
+  const useImageAsReference = useDrawingStore((s) => s.useImageAsReference);
 
   if (loading && generations.length === 0) {
     return (
@@ -49,6 +50,7 @@ export function DrawingGenerationList({ onEdit, onMaskEdit, onUsePrompt }: Props
           onRetry={(item) => retryGeneration(item).catch(() => {})}
           onDelete={(id, deleteResources) => deleteGeneration(id, deleteResources).catch(() => {})}
           onUsePrompt={onUsePrompt}
+          onUseAsReference={useImageAsReference}
         />
       ))}
     </div>

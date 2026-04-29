@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DrawingImage } from '@/types';
 import { DrawingImageStrip } from '../DrawingImageStrip';
@@ -118,7 +118,31 @@ describe('DrawingImageStrip', () => {
       background: 'transparent',
     });
     expect(container.querySelector('.drawing-image-actions')).toBeNull();
-    expect(container.querySelector('.drawing-image-action-buttons')).toBeNull();
+  });
+
+  it('shows a hover action for using an image as a reference', async () => {
+    const onUseAsReference = vi.fn();
+    const { container } = render(
+      <DrawingImageStrip
+        images={[imageFixture()]}
+        onUseAsReference={onUseAsReference}
+      />,
+    );
+
+    const tile = container.querySelector('.drawing-preview-tile');
+    act(() => {
+      intersectionCallback?.([
+        { isIntersecting: true, target: tile } as IntersectionObserverEntry,
+      ], {} as IntersectionObserver);
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: '作为参考图' }));
+
+    expect(container.querySelector('.drawing-image-hover-actions')).toBeTruthy();
+    expect(onUseAsReference).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'image-1',
+      storage_path: 'images/drawing.png',
+    }));
   });
 
   it('uses a wider four-pixel gap between batch images', () => {
@@ -132,8 +156,7 @@ describe('DrawingImageStrip', () => {
     );
 
     const strip = container.querySelector('.drawing-image-strip');
-    expect(strip).toHaveClass('gap-1');
-    expect(strip).not.toHaveClass('gap-px');
+    expect(strip).toHaveStyle({ gap: '7px' });
   });
 
   it('renders shimmer placeholders without the old bottom progress bar', () => {

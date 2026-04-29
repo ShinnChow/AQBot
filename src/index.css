@@ -306,6 +306,18 @@ html[data-theme="dark"] .drawing-image-strip::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.4);
 }
 
+.drawing-image-hover-actions {
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.drawing-preview-tile:hover .drawing-image-hover-actions,
+.drawing-preview-tile:focus-within .drawing-image-hover-actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .drawing-prompt-line {
   display: inline;
 }

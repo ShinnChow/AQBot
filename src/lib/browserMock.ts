@@ -1108,17 +1108,31 @@ export async function handleCommand<T>(cmd: string, args?: Record<string, unknow
       const action = cmd === 'generate_drawing_images'
         ? ((input.reference_file_ids || []).length > 0 ? 'reference_generate' : 'generate')
         : (cmd === 'edit_drawing_image_with_mask' ? 'mask_edit' : 'edit');
-      const images = Array.from({ length: count }).map((_, index) => ({
-        id: genId(),
-        generation_id: generationId,
-        stored_file_id: genId(),
-        storage_path: `images/mock_drawing_${generationId}_${index + 1}.svg`,
-        mime_type: 'image/svg+xml',
-        width: 1024,
-        height: 576,
-        revised_prompt: null,
-        created_at: nowTs() + index,
-      }));
+      const images = Array.from({ length: count }).map((_, index) => {
+        const imageId = genId();
+        const storedFileId = genId();
+        const storagePath = `images/mock_drawing_${generationId}_${index + 1}.svg`;
+        if (!files.some((file: any) => file.id === storedFileId)) {
+          files.push({
+            id: storedFileId,
+            original_name: storagePath.split('/').pop(),
+            mime_type: 'image/svg+xml',
+            size_bytes: 0,
+            storage_path: storagePath,
+          });
+        }
+        return {
+          id: imageId,
+          generation_id: generationId,
+          stored_file_id: storedFileId,
+          storage_path: storagePath,
+          mime_type: 'image/svg+xml',
+          width: 1024,
+          height: 576,
+          revised_prompt: null,
+          created_at: nowTs() + index,
+        };
+      });
       const generation = {
         id: generationId,
         parent_generation_id: null,
@@ -1149,6 +1163,7 @@ export async function handleCommand<T>(cmd: string, args?: Record<string, unknow
           ? files.find((file: any) => file.id === input.mask_file_id) || null
           : null,
       };
+      setStore('drawing_files', files);
       setStore('drawing_generations', [generation, ...generations]);
       return generation as T;
     }

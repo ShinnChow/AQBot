@@ -1234,6 +1234,8 @@
     "promptPlaceholder": "Describe the image you want to create",
     "promptRequired": "Enter a prompt",
     "addReference": "Reference",
+    "useAsReference": "作為參考圖",
+    "referenceAdded": "已加入參考圖",
     "editMode": "Edit mode",
     "reEdit": "Edit again",
     "regenerate": "Generate again",

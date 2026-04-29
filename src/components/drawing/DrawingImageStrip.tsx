@@ -1,6 +1,8 @@
-import { Image, Spin, theme } from 'antd';
+import { Button, Image, Spin, Tooltip, theme } from 'antd';
+import { AtSign } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { invoke } from '@/lib/invoke';
 import type { DrawingImage } from '@/types';
 
@@ -8,6 +10,7 @@ interface Props {
   images: DrawingImage[];
   loading?: boolean;
   placeholderCount?: number;
+  onUseAsReference?: (image: DrawingImage) => void;
 }
 
 const IMAGE_MAX_WIDTH = 250;
@@ -42,7 +45,15 @@ function getImageTileStyle(image: DrawingImage): CSSProperties {
   };
 }
 
-function DrawingPreviewImage({ image }: { image: DrawingImage }) {
+function DrawingPreviewImage({
+  image,
+  onUseAsReference,
+}: {
+  image: DrawingImage;
+  onUseAsReference?: (image: DrawingImage) => void;
+}) {
+  const { t } = useTranslation();
+  const { token } = theme.useToken();
   const tileStyle = useMemo(() => getImageTileStyle(image), [image.height, image.width]);
   const tileRef = useRef<HTMLDivElement>(null);
   const [shouldLoad, setShouldLoad] = useState(false);
@@ -78,7 +89,7 @@ function DrawingPreviewImage({ image }: { image: DrawingImage }) {
   return (
     <div
       ref={tileRef}
-      className="drawing-preview-tile relative overflow-hidden"
+      className="drawing-preview-tile group relative overflow-hidden"
       style={tileStyle}
     >
       {src ? (
@@ -119,6 +130,31 @@ function DrawingPreviewImage({ image }: { image: DrawingImage }) {
       ) : (
         <div className="h-full w-full" />
       )}
+      {src && onUseAsReference && (
+        <div className="drawing-image-hover-actions pointer-events-none absolute right-2 top-2 z-20 flex gap-1">
+          <Tooltip title={t('drawing.useAsReference', '作为参考图')}>
+            <Button
+              aria-label={t('drawing.useAsReference', '作为参考图')}
+              className="pointer-events-auto"
+              size="small"
+              shape="circle"
+              icon={<AtSign size={15} color={token.colorText} strokeWidth={2.4} />}
+              style={{
+                width: 28,
+                height: 28,
+                color: token.colorText,
+                background: token.colorBgContainer,
+                border: `1px solid ${token.colorBorderSecondary}`,
+                boxShadow: token.boxShadowSecondary,
+              }}
+              onClick={(event) => {
+                event.stopPropagation();
+                onUseAsReference(image);
+              }}
+            />
+          </Tooltip>
+        </div>
+      )}
     </div>
   );
 }
@@ -146,7 +182,12 @@ function DrawingImagePlaceholder() {
   );
 }
 
-export function DrawingImageStrip({ images, loading, placeholderCount = 1 }: Props) {
+export function DrawingImageStrip({
+  images,
+  loading,
+  placeholderCount = 1,
+  onUseAsReference,
+}: Props) {
   const placeholders = useMemo(
     () => Array.from({ length: Math.max(placeholderCount, images.length, 1) }),
     [images.length, placeholderCount],
@@ -166,6 +207,7 @@ export function DrawingImageStrip({ images, loading, placeholderCount = 1 }: Pro
         <DrawingPreviewImage
           key={image.id}
           image={image}
+          onUseAsReference={onUseAsReference}
         />
       ))}
     </div>

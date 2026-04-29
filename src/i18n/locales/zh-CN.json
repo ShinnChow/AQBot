@@ -1240,6 +1240,8 @@
     "replacePromptTitle": "替换当前提示词？",
     "replacePromptContent": "输入框已有内容，是否使用这条历史提示词替换当前内容？",
     "addReference": "参考图",
+    "useAsReference": "作为参考图",
+    "referenceAdded": "已加入参考图",
     "editMode": "编辑模式",
     "maskEditMode": "区域编辑模式",
     "editPreview": "编辑预览",

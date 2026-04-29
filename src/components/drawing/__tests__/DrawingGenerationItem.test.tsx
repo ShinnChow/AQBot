@@ -131,9 +131,9 @@ describe('DrawingGenerationItem', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByAltText('原图 1')).toBeDefined();
-      expect(screen.getByAltText('Mask 图')).toBeDefined();
-      expect(screen.getByAltText('参考图 1')).toBeDefined();
+      expect(screen.getByAltText('原图 1')).toHaveStyle({ width: '52px', height: '52px' });
+      expect(screen.getByAltText('Mask 图')).toHaveStyle({ width: '52px', height: '52px' });
+      expect(screen.getByAltText('参考图 1')).toHaveStyle({ width: '52px', height: '52px' });
     });
     expect(invokeMock).toHaveBeenCalledWith('read_attachment_preview', { filePath: 'images/source.png' });
     expect(invokeMock).toHaveBeenCalledWith('read_attachment_preview', { filePath: 'images/mask.png' });

@@ -17,6 +17,7 @@ interface Props {
   onRetry: (generation: DrawingGeneration) => void;
   onDelete: (id: string, deleteResources: boolean) => void;
   onUsePrompt: (prompt: string) => void;
+  onUseAsReference?: (image: DrawingImage) => void;
 }
 
 function parseParams(generation: DrawingGeneration): Record<string, any> {
@@ -56,6 +57,8 @@ function describeSize(value: string | undefined, t: (key: string, fallback: stri
   return describeDrawingSize(value);
 }
 
+const CONTEXT_THUMBNAIL_SIZE = 52;
+
 function DrawingContextThumbnail({ filePath, label }: { filePath: string; label: string }) {
   const { token } = theme.useToken();
   const [src, setSrc] = useState<string | null>(null);
@@ -72,8 +75,10 @@ function DrawingContextThumbnail({ filePath, label }: { filePath: string; label:
   return (
     <Tooltip title={label}>
       <span
-        className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md align-middle"
+        className="inline-flex shrink-0 items-center justify-center overflow-hidden rounded-md align-middle"
         style={{
+          width: CONTEXT_THUMBNAIL_SIZE,
+          height: CONTEXT_THUMBNAIL_SIZE,
           background: token.colorFillAlter,
           border: `1px solid ${token.colorBorderSecondary}`,
         }}
@@ -82,12 +87,12 @@ function DrawingContextThumbnail({ filePath, label }: { filePath: string; label:
           <Image
             src={src}
             alt={label}
-            width={32}
-            height={32}
+            width={CONTEXT_THUMBNAIL_SIZE}
+            height={CONTEXT_THUMBNAIL_SIZE}
             style={{
               display: 'block',
-              width: 32,
-              height: 32,
+              width: CONTEXT_THUMBNAIL_SIZE,
+              height: CONTEXT_THUMBNAIL_SIZE,
               objectFit: 'cover',
               borderRadius: 6,
             }}
@@ -106,6 +111,7 @@ export function DrawingGenerationItem({
   onRetry,
   onDelete,
   onUsePrompt,
+  onUseAsReference,
 }: Props) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
@@ -272,6 +278,16 @@ export function DrawingGenerationItem({
           images={generation.images}
           loading={generation.status === 'running'}
           placeholderCount={placeholderCount}
+          onUseAsReference={onUseAsReference
+            ? (image) => {
+                try {
+                  onUseAsReference(image);
+                  message.success(t('drawing.referenceAdded', '已加入参考图'));
+                } catch (error) {
+                  message.error(String(error));
+                }
+              }
+            : undefined}
         />
       )}
 

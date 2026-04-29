@@ -1,5 +1,5 @@
 import { Button, Image, Spin, Tooltip, theme } from 'antd';
-import { AtSign } from 'lucide-react';
+import { AtSign, Focus, Pencil } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +11,8 @@ interface Props {
   loading?: boolean;
   placeholderCount?: number;
   onUseAsReference?: (image: DrawingImage) => void;
+  onEdit?: (image: DrawingImage) => void;
+  onMaskEdit?: (image: DrawingImage) => void;
 }
 
 const IMAGE_MAX_WIDTH = 180;
@@ -48,9 +50,13 @@ function getImageTileStyle(image: DrawingImage): CSSProperties {
 function DrawingPreviewImage({
   image,
   onUseAsReference,
+  onEdit,
+  onMaskEdit,
 }: {
   image: DrawingImage;
   onUseAsReference?: (image: DrawingImage) => void;
+  onEdit?: (image: DrawingImage) => void;
+  onMaskEdit?: (image: DrawingImage) => void;
 }) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
@@ -130,29 +136,77 @@ function DrawingPreviewImage({
       ) : (
         <div className="h-full w-full" />
       )}
-      {src && onUseAsReference && (
+      {src && (onUseAsReference || onEdit || onMaskEdit) && (
         <div className="drawing-image-hover-actions pointer-events-none absolute right-2 top-2 z-20 flex gap-1">
-          <Tooltip title={t('drawing.useAsReference', '作为参考图')}>
-            <Button
-              aria-label={t('drawing.useAsReference', '作为参考图')}
-              className="pointer-events-auto"
-              size="small"
-              shape="circle"
-              icon={<AtSign size={15} color={token.colorText} strokeWidth={2.4} />}
-              style={{
-                width: 28,
-                height: 28,
-                color: token.colorText,
-                background: token.colorBgContainer,
-                border: `1px solid ${token.colorBorderSecondary}`,
-                boxShadow: token.boxShadowSecondary,
-              }}
-              onClick={(event) => {
-                event.stopPropagation();
-                onUseAsReference(image);
-              }}
-            />
-          </Tooltip>
+          {onUseAsReference && (
+            <Tooltip title={t('drawing.useAsReference', '作为参考图')}>
+              <Button
+                aria-label={t('drawing.useAsReference', '作为参考图')}
+                className="drawing-image-action-button pointer-events-auto"
+                size="small"
+                shape="circle"
+                color="default"
+                variant="filled"
+                icon={<AtSign size={15} strokeWidth={2.4} />}
+                style={{
+                  width: 28,
+                  height: 28,
+                  color: token.colorText,
+                  boxShadow: token.boxShadowSecondary,
+                }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onUseAsReference(image);
+                }}
+              />
+            </Tooltip>
+          )}
+          {onEdit && (
+            <Tooltip title={t('drawing.reEdit', '重新编辑')}>
+              <Button
+                aria-label={t('drawing.reEdit', '重新编辑')}
+                className="drawing-image-action-button pointer-events-auto"
+                size="small"
+                shape="circle"
+                color="default"
+                variant="filled"
+                icon={<Pencil size={14} />}
+                style={{
+                  width: 28,
+                  height: 28,
+                  color: token.colorText,
+                  boxShadow: token.boxShadowSecondary,
+                }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onEdit(image);
+                }}
+              />
+            </Tooltip>
+          )}
+          {onMaskEdit && (
+            <Tooltip title={t('drawing.maskEdit', '区域编辑')}>
+              <Button
+                aria-label={t('drawing.maskEdit', '区域编辑')}
+                className="drawing-image-action-button pointer-events-auto"
+                size="small"
+                shape="circle"
+                color="default"
+                variant="filled"
+                icon={<Focus size={14} />}
+                style={{
+                  width: 28,
+                  height: 28,
+                  color: token.colorText,
+                  boxShadow: token.boxShadowSecondary,
+                }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onMaskEdit(image);
+                }}
+              />
+            </Tooltip>
+          )}
         </div>
       )}
     </div>
@@ -187,6 +241,8 @@ export function DrawingImageStrip({
   loading,
   placeholderCount = 1,
   onUseAsReference,
+  onEdit,
+  onMaskEdit,
 }: Props) {
   const placeholders = useMemo(
     () => Array.from({ length: Math.max(placeholderCount, images.length, 1) }),
@@ -208,6 +264,8 @@ export function DrawingImageStrip({
           key={image.id}
           image={image}
           onUseAsReference={onUseAsReference}
+          onEdit={onEdit}
+          onMaskEdit={onMaskEdit}
         />
       ))}
     </div>

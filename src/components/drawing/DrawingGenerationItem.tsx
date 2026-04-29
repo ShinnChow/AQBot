@@ -1,6 +1,6 @@
 import { Button, Dropdown, Image, Tooltip, Tag, Typography, message, theme } from 'antd';
-import { Clipboard, Download, FolderOpen, Focus, Pencil, RefreshCw, Save, Trash2 } from 'lucide-react';
-import type { CSSProperties } from 'react';
+import { AtSign, Clipboard, Download, Focus, FolderOpen, Pencil, RefreshCw, Save, Trash2 } from 'lucide-react';
+import type { CSSProperties, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { DrawingGeneration, DrawingImage } from '@/types';
@@ -104,6 +104,40 @@ function DrawingContextThumbnail({ filePath, label }: { filePath: string; label:
   );
 }
 
+function DrawingImageMenuLabel({ image, label }: { image: DrawingImage; label: string }) {
+  const { token } = theme.useToken();
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    invoke<string>('read_attachment_preview', { filePath: image.storage_path })
+      .then((data) => { if (!cancelled) setSrc(data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [image.storage_path]);
+
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span
+        className="inline-flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded"
+        style={{
+          background: token.colorFillAlter,
+          border: `1px solid ${token.colorBorderSecondary}`,
+        }}
+      >
+        {src ? (
+          <img
+            src={src}
+            alt={label}
+            className="block h-full w-full object-cover"
+          />
+        ) : null}
+      </span>
+      <span>{label}</span>
+    </span>
+  );
+}
+
 export function DrawingGenerationItem({
   generation,
   onEdit,
@@ -118,11 +152,21 @@ export function DrawingGenerationItem({
   const params = parseParams(generation);
   const firstImage = generation.images[0];
   const placeholderCount = Number(params.n || generation.images.length || 1);
+  const hasMultipleImages = generation.images.length > 1;
+  const imageMenuItems = useMemo(() => generation.images.map((image, index) => ({
+    key: image.id,
+    label: (
+      <DrawingImageMenuLabel
+        image={image}
+        label={t('drawing.imageNumber', `图${index + 1}`, { index: index + 1 })}
+      />
+    ),
+  })), [generation.images, t]);
   const contextThumbnails = useMemo(() => [
     ...(generation.source_images ?? []).map((image, index) => ({
       key: `source-${image.id}`,
       filePath: image.storage_path,
-      label: t('drawing.sourceImageWithIndex', `原图 ${index + 1}`),
+      label: t('drawing.sourceImageWithIndex', `原图 ${index + 1}`, { index: index + 1 }),
     })),
     ...(generation.mask_file ? [{
       key: `mask-${generation.mask_file.id}`,
@@ -132,7 +176,7 @@ export function DrawingGenerationItem({
     ...(generation.reference_files ?? []).map((file, index) => ({
       key: `ref-${file.id}`,
       filePath: file.storage_path,
-      label: t('drawing.referenceImageWithIndex', `参考图 ${index + 1}`),
+      label: t('drawing.referenceImageWithIndex', `参考图 ${index + 1}`, { index: index + 1 }),
     })),
   ], [generation.mask_file, generation.reference_files, generation.source_images, t]);
   const metadata = [
@@ -178,6 +222,61 @@ export function DrawingGenerationItem({
     } catch (error) {
       message.error(String(error));
     }
+  };
+
+  const handleUseAsReference = (image: DrawingImage) => {
+    if (!onUseAsReference) return;
+    try {
+      onUseAsReference(image);
+      message.success(t('drawing.referenceAdded', '已加入参考图'));
+    } catch (error) {
+      message.error(String(error));
+    }
+  };
+
+  const getImageById = (id: string) => generation.images.find((image) => image.id === id);
+
+  const renderImageAction = ({
+    title,
+    ariaLabel,
+    icon,
+    onSelect,
+  }: {
+    title: string;
+    ariaLabel: string;
+    icon: ReactNode;
+    onSelect: (image: DrawingImage) => void;
+  }) => {
+    const button = (
+      <Tooltip title={title}>
+        <Button
+          aria-label={ariaLabel}
+          size="small"
+          color="default"
+          variant="filled"
+          icon={icon}
+          disabled={!firstImage}
+          onClick={hasMultipleImages ? undefined : () => firstImage && onSelect(firstImage)}
+        />
+      </Tooltip>
+    );
+
+    if (!hasMultipleImages) return button;
+
+    return (
+      <Dropdown
+        trigger={['click']}
+        menu={{
+          items: imageMenuItems,
+          onClick: ({ key }) => {
+            const image = getImageById(String(key));
+            if (image) onSelect(image);
+          },
+        }}
+      >
+        {button}
+      </Dropdown>
+    );
   };
 
   return (
@@ -278,16 +377,9 @@ export function DrawingGenerationItem({
           images={generation.images}
           loading={generation.status === 'running'}
           placeholderCount={placeholderCount}
-          onUseAsReference={onUseAsReference
-            ? (image) => {
-                try {
-                  onUseAsReference(image);
-                  message.success(t('drawing.referenceAdded', '已加入参考图'));
-                } catch (error) {
-                  message.error(String(error));
-                }
-              }
-            : undefined}
+          onEdit={onEdit}
+          onMaskEdit={onMaskEdit}
+          onUseAsReference={onUseAsReference ? handleUseAsReference : undefined}
         />
       )}
 
@@ -331,28 +423,26 @@ export function DrawingGenerationItem({
               />
             </Tooltip>
           </Dropdown>
-          <Tooltip title={t('drawing.reEdit', '重新编辑')}>
-            <Button
-              aria-label={t('drawing.reEdit', '重新编辑')}
-              size="small"
-              color="default"
-              variant="filled"
-              icon={<Pencil size={15} />}
-              disabled={!firstImage}
-              onClick={() => firstImage && onEdit(firstImage)}
-            />
-          </Tooltip>
-          <Tooltip title={t('drawing.maskEdit', '区域编辑')}>
-            <Button
-              aria-label={t('drawing.maskEdit', '区域编辑')}
-              size="small"
-              color="default"
-              variant="filled"
-              icon={<Focus size={15} />}
-              disabled={!firstImage}
-              onClick={() => firstImage && onMaskEdit(firstImage)}
-            />
-          </Tooltip>
+          {onUseAsReference && (
+            renderImageAction({
+              title: t('drawing.useAsReference', '作为参考图'),
+              ariaLabel: t('drawing.useAsReference', '作为参考图'),
+              icon: <AtSign size={15} />,
+              onSelect: handleUseAsReference,
+            })
+          )}
+          {renderImageAction({
+            title: t('drawing.reEdit', '重新编辑'),
+            ariaLabel: t('drawing.reEdit', '重新编辑'),
+            icon: <Pencil size={15} />,
+            onSelect: onEdit,
+          })}
+          {renderImageAction({
+            title: t('drawing.maskEdit', '区域编辑'),
+            ariaLabel: t('drawing.maskEdit', '区域编辑'),
+            icon: <Focus size={15} />,
+            onSelect: onMaskEdit,
+          })}
           <Tooltip title={t('drawing.regenerate', '再次生成')}>
             <Button
               aria-label={t('drawing.regenerate', '再次生成')}

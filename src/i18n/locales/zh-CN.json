@@ -1223,6 +1223,7 @@
     "provider": "服务商",
     "selectProvider": "选择服务商",
     "model": "模型",
+    "selectModel": "选择绘图模型",
     "size": "尺寸",
     "quality": "质量",
     "outputFormat": "输出格式",
@@ -1263,6 +1264,10 @@
     "deleteRecord": "删除",
     "deleteRecordOnly": "仅删除记录",
     "deleteRecordAndImages": "全部删除",
+    "imageNumber": "图{{index}}",
+    "sourceImageWithIndex": "原图 {{index}}",
+    "maskImage": "Mask 图",
+    "referenceImageWithIndex": "参考图 {{index}}",
     "meta": {
       "action": "类型",
       "model": "模型",

@@ -318,6 +318,16 @@ html[data-theme="dark"] .drawing-image-strip::-webkit-scrollbar-thumb:hover {
   transform: translateY(0);
 }
 
+.drawing-image-action-button.ant-btn-variant-filled {
+  background: var(--ant-color-fill-secondary);
+}
+
+.drawing-image-action-button.ant-btn-variant-filled:hover {
+  background: var(--ant-color-fill) !important;
+  border-color: var(--ant-color-primary-border) !important;
+  color: var(--ant-color-primary) !important;
+}
+
 .drawing-prompt-line {
   display: inline;
 }

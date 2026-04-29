@@ -237,8 +237,11 @@ describe('DrawingGenerationItem', () => {
     expect(screen.getAllByText('copy-button').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders small icon-only filled action buttons and exposes both delete modes from the delete dropdown', async () => {
+  it('runs bottom image actions directly when there is only one image and exposes both delete modes', async () => {
     const onDelete = vi.fn();
+    const onUseAsReference = vi.fn();
+    const onEdit = vi.fn();
+    const onMaskEdit = vi.fn();
     const { container } = render(
       <DrawingGenerationItem
         generation={generationFixture({
@@ -255,18 +258,29 @@ describe('DrawingGenerationItem', () => {
             created_at: 1,
           }],
         })}
-        onEdit={() => {}}
-        onMaskEdit={() => {}}
+        onEdit={onEdit}
+        onMaskEdit={onMaskEdit}
         onRetry={() => {}}
         onDelete={onDelete}
         onUsePrompt={() => {}}
+        onUseAsReference={onUseAsReference}
       />,
     );
 
     const actionButtons = Array.from(container.querySelectorAll('.mt-4 .ant-btn'));
-    expect(container.querySelectorAll('.mt-4 .ant-btn-variant-filled').length).toBeGreaterThanOrEqual(5);
-    expect(container.querySelectorAll('.mt-4 .ant-btn-sm').length).toBeGreaterThanOrEqual(5);
+    expect(container.querySelectorAll('.mt-4 .ant-btn-variant-filled')).toHaveLength(6);
+    expect(container.querySelectorAll('.mt-4 .ant-btn-sm')).toHaveLength(6);
     expect(actionButtons.every((button) => button.textContent === '')).toBe(true);
+
+    fireEvent.click(screen.getByRole('button', { name: '作为参考图' }));
+    expect(onUseAsReference).toHaveBeenCalledWith(expect.objectContaining({ id: 'image-1' }));
+
+    fireEvent.click(screen.getByRole('button', { name: '重新编辑' }));
+    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 'image-1' }));
+
+    fireEvent.click(screen.getByRole('button', { name: '区域编辑' }));
+    expect(onMaskEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 'image-1' }));
+    expect(screen.queryByText('图1')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: '删除' }));
     fireEvent.click(await screen.findByText('仅删除记录'));
@@ -275,6 +289,51 @@ describe('DrawingGenerationItem', () => {
     fireEvent.click(screen.getByRole('button', { name: '删除' }));
     fireEvent.click(await screen.findByText('全部删除'));
     expect(onDelete).toHaveBeenCalledWith('generation-1', true);
+  });
+
+  it('uses image dropdowns for bottom image actions when there are multiple images', async () => {
+    const onEdit = vi.fn();
+    render(
+      <DrawingGenerationItem
+        generation={generationFixture({
+          status: 'succeeded',
+          images: [
+            {
+              id: 'image-1',
+              generation_id: 'generation-1',
+              stored_file_id: 'file-1',
+              storage_path: 'images/one.png',
+              mime_type: 'image/png',
+              width: 1024,
+              height: 1024,
+              revised_prompt: null,
+              created_at: 1,
+            },
+            {
+              id: 'image-2',
+              generation_id: 'generation-1',
+              stored_file_id: 'file-2',
+              storage_path: 'images/two.png',
+              mime_type: 'image/png',
+              width: 1024,
+              height: 1024,
+              revised_prompt: null,
+              created_at: 2,
+            },
+          ],
+        })}
+        onEdit={onEdit}
+        onMaskEdit={() => {}}
+        onRetry={() => {}}
+        onDelete={() => {}}
+        onUsePrompt={() => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '重新编辑' }));
+    fireEvent.click(await screen.findByText('图2'));
+
+    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 'image-2' }));
   });
 
   it('moves image actions to the bottom download dropdown', async () => {

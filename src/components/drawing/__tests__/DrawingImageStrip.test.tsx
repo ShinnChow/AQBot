@@ -120,12 +120,16 @@ describe('DrawingImageStrip', () => {
     expect(container.querySelector('.drawing-image-actions')).toBeNull();
   });
 
-  it('shows a hover action for using an image as a reference', async () => {
+  it('shows hover actions for reference, edit, and mask edit on each image', async () => {
     const onUseAsReference = vi.fn();
+    const onEdit = vi.fn();
+    const onMaskEdit = vi.fn();
     const { container } = render(
       <DrawingImageStrip
         images={[imageFixture()]}
         onUseAsReference={onUseAsReference}
+        onEdit={onEdit}
+        onMaskEdit={onMaskEdit}
       />,
     );
 
@@ -137,12 +141,16 @@ describe('DrawingImageStrip', () => {
     });
 
     fireEvent.click(await screen.findByRole('button', { name: '作为参考图' }));
+    fireEvent.click(screen.getByRole('button', { name: '重新编辑' }));
+    fireEvent.click(screen.getByRole('button', { name: '区域编辑' }));
 
     expect(container.querySelector('.drawing-image-hover-actions')).toBeTruthy();
     expect(onUseAsReference).toHaveBeenCalledWith(expect.objectContaining({
       id: 'image-1',
       storage_path: 'images/drawing.png',
     }));
+    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 'image-1' }));
+    expect(onMaskEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 'image-1' }));
   });
 
   it('uses a wider four-pixel gap between batch images', () => {

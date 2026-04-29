@@ -1223,6 +1223,7 @@
     "provider": "Provider",
     "selectProvider": "Select provider",
     "model": "Model",
+    "selectModel": "Select drawing model",
     "size": "Size",
     "quality": "Quality",
     "outputFormat": "Output Format",
@@ -1263,6 +1264,25 @@
     "deleteRecord": "Delete",
     "deleteRecordOnly": "Delete record only",
     "deleteRecordAndImages": "Delete all",
+    "imageNumber": "Image {{index}}",
+    "sourceImageWithIndex": "Source image {{index}}",
+    "maskImage": "Mask image",
+    "referenceImageWithIndex": "Reference image {{index}}",
+    "meta": {
+      "action": "Type",
+      "model": "Model",
+      "size": "Size",
+      "quality": "Quality",
+      "format": "Format",
+      "background": "Background",
+      "count": "Count"
+    },
+    "action": {
+      "generate": "Text to image",
+      "referenceGenerate": "Reference generation",
+      "edit": "Edit",
+      "maskEdit": "Area edit"
+    },
     "option": {
       "auto": "Auto",
       "quality": {

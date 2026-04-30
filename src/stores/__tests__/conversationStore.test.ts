@@ -514,6 +514,267 @@ describe('conversationStore pagination', () => {
     });
   });
 
+  it('keeps the same-model regenerate placeholder active while the new answer streams', async () => {
+    vi.useFakeTimers();
+    const regenerate = deferred<void>();
+    const { useConversationStore } = await import('../conversationStore');
+    const user = {
+      ...makeMessage(1),
+      id: 'user-1',
+      role: 'user' as const,
+      content: 'question',
+      provider_id: null,
+      model_id: null,
+      parent_message_id: null,
+    };
+    const active = {
+      ...makeMessage(2),
+      id: 'assistant-a',
+      content: 'old answer',
+      provider_id: 'provider-a',
+      model_id: 'model-a',
+      parent_message_id: user.id,
+      is_active: true,
+      status: 'complete' as const,
+    };
+
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === 'regenerate_message') return regenerate.promise;
+      if (cmd === 'list_messages_page') return Promise.resolve(makePage([user, active], false));
+      throw new Error(`unexpected command: ${cmd}`);
+    });
+
+    useConversationStore.setState({
+      activeConversationId: 'conv-1',
+      messages: [user, active],
+      enabledMcpServerIds: [],
+      enabledKnowledgeBaseIds: [],
+      enabledMemoryNamespaceIds: [],
+      thinkingBudget: null,
+    });
+
+    const pending = useConversationStore.getState().regenerateMessage(active.id);
+    await flushPromises();
+
+    expect(invokeMock).toHaveBeenCalledWith('regenerate_message', expect.objectContaining({
+      conversationId: 'conv-1',
+      userMessageId: user.id,
+    }));
+
+    const messages = useConversationStore.getState().messages;
+    const placeholder = messages.find((message) => message.id.startsWith('temp-assistant-'));
+    expect(messages.find((message) => message.id === active.id)?.is_active).toBe(false);
+    expect(placeholder).toMatchObject({
+      content: '',
+      is_active: true,
+      parent_message_id: user.id,
+      provider_id: active.provider_id,
+      model_id: active.model_id,
+      status: 'partial',
+    });
+    expect(useConversationStore.getState().streamingMessageId).toBe(placeholder?.id);
+
+    regenerate.resolve();
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(600);
+    await pending;
+    vi.useRealTimers();
+  });
+
+  it('resolves a same-model regenerated temp placeholder to the active partial database version', async () => {
+    const { useConversationStore } = await import('../conversationStore');
+    const user = {
+      ...makeMessage(1),
+      id: 'user-1',
+      role: 'user' as const,
+      provider_id: null,
+      model_id: null,
+      parent_message_id: null,
+    };
+    const oldVersion = {
+      ...makeMessage(2),
+      id: 'assistant-old',
+      content: 'old answer',
+      provider_id: 'provider-a',
+      model_id: 'model-a',
+      parent_message_id: user.id,
+      is_active: false,
+      status: 'complete' as const,
+      version_index: 0,
+    };
+    const tempPlaceholder = {
+      ...makeMessage(6),
+      id: 'temp-assistant-1',
+      content: '',
+      provider_id: 'provider-a',
+      model_id: 'model-a',
+      parent_message_id: user.id,
+      is_active: true,
+      status: 'partial' as const,
+      version_index: 1,
+    };
+    const dbPlaceholder = {
+      ...tempPlaceholder,
+      id: 'assistant-new',
+    };
+
+    useConversationStore.setState({
+      activeConversationId: 'conv-1',
+      streaming: true,
+      streamingMessageId: tempPlaceholder.id,
+      streamingConversationId: 'conv-1',
+      messages: [user, oldVersion, tempPlaceholder],
+    });
+
+    useConversationStore.getState().hydrateMessageVersions(user.id, [oldVersion, dbPlaceholder]);
+
+    const messages = useConversationStore.getState().messages;
+    expect(useConversationStore.getState().streamingMessageId).toBe(dbPlaceholder.id);
+    expect(messages.map((message) => message.id)).toEqual(['user-1', 'assistant-old', 'assistant-new']);
+    expect(messages.find((message) => message.id === dbPlaceholder.id)).toMatchObject({
+      is_active: true,
+      status: 'partial',
+    });
+  });
+
+  it('preserves the local temp placeholder when hydration only returns old same-model versions', async () => {
+    const { useConversationStore } = await import('../conversationStore');
+    const user = {
+      ...makeMessage(1),
+      id: 'user-1',
+      role: 'user' as const,
+      provider_id: null,
+      model_id: null,
+      parent_message_id: null,
+    };
+    const oldVersion = {
+      ...makeMessage(2),
+      id: 'assistant-old',
+      content: 'old answer',
+      provider_id: 'provider-a',
+      model_id: 'model-a',
+      parent_message_id: user.id,
+      is_active: false,
+      status: 'complete' as const,
+      version_index: 0,
+    };
+    const tempPlaceholder = {
+      ...makeMessage(6),
+      id: 'temp-assistant-1',
+      content: '',
+      provider_id: 'provider-a',
+      model_id: 'model-a',
+      parent_message_id: user.id,
+      is_active: true,
+      status: 'partial' as const,
+      version_index: 1,
+    };
+
+    useConversationStore.setState({
+      activeConversationId: 'conv-1',
+      streaming: true,
+      streamingMessageId: tempPlaceholder.id,
+      streamingConversationId: 'conv-1',
+      messages: [user, oldVersion, tempPlaceholder],
+    });
+
+    useConversationStore.getState().hydrateMessageVersions(user.id, [oldVersion]);
+
+    const messages = useConversationStore.getState().messages;
+    expect(useConversationStore.getState().streamingMessageId).toBe(tempPlaceholder.id);
+    expect(messages.map((message) => message.id)).toEqual(['user-1', 'assistant-old', 'temp-assistant-1']);
+    expect(messages.find((message) => message.id === tempPlaceholder.id)).toMatchObject({
+      is_active: true,
+      status: 'partial',
+    });
+  });
+
+  it('regenerates the specified user message instead of falling back to the last user message', async () => {
+    vi.useFakeTimers();
+    const regenerate = deferred<void>();
+    const { useConversationStore } = await import('../conversationStore');
+    const firstUser = {
+      ...makeMessage(1),
+      id: 'user-1',
+      role: 'user' as const,
+      content: 'first question',
+      provider_id: null,
+      model_id: null,
+      parent_message_id: null,
+    };
+    const firstAssistant = {
+      ...makeMessage(2),
+      id: 'assistant-1',
+      content: 'first answer',
+      provider_id: 'provider-a',
+      model_id: 'model-a',
+      parent_message_id: firstUser.id,
+      is_active: true,
+      status: 'complete' as const,
+    };
+    const lastUser = {
+      ...makeMessage(3),
+      id: 'user-2',
+      role: 'user' as const,
+      content: 'last question',
+      provider_id: null,
+      model_id: null,
+      parent_message_id: null,
+    };
+    const lastAssistant = {
+      ...makeMessage(4),
+      id: 'assistant-2',
+      content: 'last answer',
+      provider_id: 'provider-b',
+      model_id: 'model-b',
+      parent_message_id: lastUser.id,
+      is_active: true,
+      status: 'complete' as const,
+    };
+
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === 'regenerate_message') return regenerate.promise;
+      if (cmd === 'list_messages_page') {
+        return Promise.resolve(makePage([firstUser, firstAssistant, lastUser, lastAssistant], false));
+      }
+      throw new Error(`unexpected command: ${cmd}`);
+    });
+
+    useConversationStore.setState({
+      activeConversationId: 'conv-1',
+      messages: [firstUser, firstAssistant, lastUser, lastAssistant],
+      enabledMcpServerIds: [],
+      enabledKnowledgeBaseIds: [],
+      enabledMemoryNamespaceIds: [],
+      thinkingBudget: null,
+    });
+
+    const pending = useConversationStore.getState().regenerateMessage(firstUser.id);
+    await flushPromises();
+
+    expect(invokeMock).toHaveBeenCalledWith('regenerate_message', expect.objectContaining({
+      userMessageId: firstUser.id,
+    }));
+
+    const messages = useConversationStore.getState().messages;
+    const placeholder = messages.find((message) => message.id.startsWith('temp-assistant-'));
+    expect(messages.find((message) => message.id === firstAssistant.id)?.is_active).toBe(false);
+    expect(messages.find((message) => message.id === lastAssistant.id)?.is_active).toBe(true);
+    expect(placeholder).toMatchObject({
+      is_active: true,
+      parent_message_id: firstUser.id,
+      provider_id: firstAssistant.provider_id,
+      model_id: firstAssistant.model_id,
+      status: 'partial',
+    });
+
+    regenerate.resolve();
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(600);
+    await pending;
+    vi.useRealTimers();
+  });
+
   it('keeps an inactive companion model visible while streaming chunks arrive and after final refresh', async () => {
     vi.useFakeTimers();
     const listeners = new Map<string, (event: unknown) => void>();

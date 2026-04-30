@@ -244,6 +244,32 @@ function mergeConversationCollections(
   };
 }
 
+function isSameProviderModel(left: Message, right: Message): boolean {
+  return left.provider_id === right.provider_id && left.model_id === right.model_id;
+}
+
+function resolveHydratedStreamingMessageId(placeholder: Message, versions: Message[]): string | null {
+  const activePartial = versions.find(
+    (version) => isSameProviderModel(version, placeholder) && version.is_active && version.status === 'partial',
+  );
+  if (activePartial) {
+    return activePartial.id;
+  }
+
+  if (!placeholder.is_active) {
+    const partialVersions = versions
+      .filter((version) => isSameProviderModel(version, placeholder) && version.status === 'partial')
+      .sort((left, right) =>
+        right.version_index - left.version_index
+        || right.created_at - left.created_at
+        || right.id.localeCompare(left.id),
+      );
+    return partialVersions[0]?.id ?? null;
+  }
+
+  return null;
+}
+
 function preferenceStateMatches(
   state: ConversationPreferenceState,
   expected: Partial<ConversationPreferenceState>,
@@ -1669,10 +1695,11 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     // Find the user message (either specific or last one)
     let userMsg: Message | undefined;
     if (targetMessageId) {
-      // Find the AI message, then its parent user message
-      const aiMsg = msgs.find(m => m.id === targetMessageId);
-      if (aiMsg?.parent_message_id) {
-        userMsg = msgs.find(m => m.id === aiMsg.parent_message_id);
+      const targetMsg = msgs.find(m => m.id === targetMessageId);
+      if (targetMsg?.role === 'user') {
+        userMsg = targetMsg;
+      } else if (targetMsg?.parent_message_id) {
+        userMsg = msgs.find(m => m.id === targetMsg.parent_message_id);
       }
     }
     if (!userMsg) {
@@ -1688,6 +1715,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
 
     // Find the original active AI message to preserve its created_at
     const originalAiMsg = msgs.find(m => m.parent_message_id === parentId && m.is_active);
+    const parentVersions = msgs.filter((m) => m.parent_message_id === parentId && m.role === 'assistant');
     const placeholderAssistant: Message = {
       id: tempAssistantId,
       conversation_id: conversationId,
@@ -1702,8 +1730,8 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       tool_call_id: null,
       created_at: originalAiMsg?.created_at ?? Date.now(),
       parent_message_id: userMsg.id,
-      version_index: 0,
-      is_active: false,
+      version_index: parentVersions.length,
+      is_active: true,
       status: 'partial',
     };
 
@@ -1810,7 +1838,7 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
       tool_call_id: null,
       created_at: originalAiMsg?.created_at ?? Date.now(),
       parent_message_id: userMsg.id,
-      version_index: 0,
+      version_index: parentVersions.length,
       is_active: !appendAsCompanion,
       status: 'partial',
     };
@@ -2612,31 +2640,37 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
   },
 
   hydrateMessageVersions: (parentMessageId, versions, activeMessageId) => {
-    const resolvedActiveMessageId = activeMessageId
-      ?? versions.find((version) => version.is_active)?.id
-      ?? null;
-    set((s) => ({
-      messages: mergeAssistantVersionGroup(
-        s.messages,
-        parentMessageId,
-        versions,
-        resolvedActiveMessageId,
-      ),
-      streamingMessageId: (() => {
+    set((s) => {
+      let versionsForMerge = versions;
+      const resolvedStreamingMessageId = (() => {
         if (!s.streamingMessageId?.startsWith('temp-')) {
-          return s.streamingMessageId;
+          return null;
         }
         const placeholder = s.messages.find((message) => message.id === s.streamingMessageId);
         if (!placeholder || placeholder.parent_message_id !== parentMessageId) {
-          return s.streamingMessageId;
+          return null;
         }
-        const resolved = versions.find((version) =>
-          version.model_id === placeholder.model_id
-          && version.provider_id === placeholder.provider_id
-        );
-        return resolved?.id ?? s.streamingMessageId;
-      })(),
-    }));
+        const resolved = resolveHydratedStreamingMessageId(placeholder, versions);
+        if (!resolved) {
+          versionsForMerge = [...versions, placeholder];
+        }
+        return resolved ?? s.streamingMessageId;
+      })();
+
+      const resolvedActiveMessageId = activeMessageId
+        ?? versionsForMerge.find((version) => version.is_active)?.id
+        ?? null;
+
+      return {
+        messages: mergeAssistantVersionGroup(
+          s.messages,
+          parentMessageId,
+          versionsForMerge,
+          resolvedActiveMessageId,
+        ),
+        streamingMessageId: resolvedStreamingMessageId ?? s.streamingMessageId,
+      };
+    });
   },
 
   switchMessageVersion: async (conversationId, parentMessageId, messageId) => {

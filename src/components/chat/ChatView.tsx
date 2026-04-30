@@ -3021,7 +3021,7 @@ export function ChatView() {
               label: t('chat.regenerate'),
               onItemClick: async () => {
                 try {
-                  await regenerateMessage();
+                  await regenerateMessage(msg?.id);
                 } catch (e) {
                   messageApi.error(String(e));
                 }

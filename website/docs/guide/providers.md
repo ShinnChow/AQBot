@@ -40,6 +40,82 @@ For third-party relay services, keep the type set to **OpenAI** (or the matching
 
 ---
 
+## Importing from a Website Link
+
+Provider websites can offer an **Open in AQBot** link that opens the AQBot desktop app and pre-fills the provider settings. AQBot will switch to **Settings → Providers**, show a confirmation dialog, and import the provider only after the user confirms.
+
+This is useful for API vendors, relay services, private model platforms, and local gateway dashboards that want to help users configure AQBot without copying every field manually.
+
+### User Flow
+
+1. Install and open a version of AQBot that supports provider links.
+2. Click the provider's **Open in AQBot** link in your browser.
+3. Confirm the provider name, Base URL, provider type, and API key prefix in AQBot.
+4. AQBot creates a new provider or reuses an existing provider with the same **Base URL + type**, then adds the API key if it is not already present.
+
+AQBot does not validate the key or fetch models automatically. After importing, click **Fetch Models** or add models manually.
+
+### Link Format
+
+```text
+aqbot://providers?name=<name>&baseurl=<base-url>&apikey=<api-key>&type=<provider-type>
+```
+
+Example:
+
+```text
+aqbot://providers?name=OpenAI&baseurl=https%3A%2F%2Fapi.openai.com&apikey=sk-xxx&type=openai
+```
+
+### Parameters
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `name` | Yes | Display name shown in AQBot, for example `OpenAI` or `My Relay` |
+| `baseurl` | Yes | Provider Base URL, URL-encoded. Only `http` and `https` are accepted. Query strings and fragments are rejected. |
+| `apikey` | Yes | API key to save into AQBot. AQBot shows only a prefix in the confirmation dialog. |
+| `type` | Yes | Provider type. Allowed values: `openai`, `openai_responses`, `anthropic`, `gemini`, `custom`. |
+
+`baseurl` can use AQBot's existing force suffix, for example `https://example.com!`. AQBot stores `api_path` as empty for imported providers and continues to use the default path for the selected provider type.
+
+### Website Configuration
+
+Use `encodeURIComponent` for every dynamic value:
+
+```html
+<a id="open-aqbot" href="#">Open in AQBot</a>
+
+<script>
+  const provider = {
+    name: 'My Relay',
+    baseurl: 'https://api.example.com',
+    apikey: 'sk-user-key',
+    type: 'openai',
+  };
+
+  const params = new URLSearchParams({
+    name: provider.name,
+    baseurl: provider.baseurl,
+    apikey: provider.apikey,
+    type: provider.type,
+  });
+
+  document.getElementById('open-aqbot').href = `aqbot://providers?${params.toString()}`;
+</script>
+```
+
+If your service lets users generate API keys, create the link only after the user is signed in and has explicitly selected or created a key.
+
+::: warning Security
+An API key in a URL may be visible to browser history, logs, extensions, or analytics tools. Do not place provider import links with real keys on public pages, in static HTML, or in third-party tracking redirects. Prefer generating the link on a private account page after user confirmation.
+:::
+
+::: tip Testing
+Custom URI schemes are registered by the installed desktop app. If `aqbot://...` does not open AQBot, install or rebuild the latest AQBot app first; running only the website or Vite dev server does not register the system scheme.
+:::
+
+---
+
 ## Multi-Key Rotation
 
 AQBot supports multiple API keys per provider for load distribution and rate-limit avoidance.

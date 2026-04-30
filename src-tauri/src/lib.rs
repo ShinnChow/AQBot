@@ -51,6 +51,13 @@ pub fn run() {
 
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -73,6 +80,7 @@ pub fn run() {
             // providers
             commands::providers::list_providers,
             commands::providers::create_provider,
+            commands::providers::import_provider_from_deep_link,
             commands::providers::update_provider,
             commands::providers::delete_provider,
             commands::providers::toggle_provider,

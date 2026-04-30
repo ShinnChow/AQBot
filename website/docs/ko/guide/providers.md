@@ -40,6 +40,80 @@ AQBot은 다음 제공업체를 최우선으로 지원합니다. OpenAI 호환 A
 
 ---
 
+## 웹사이트 링크에서 가져오기
+
+제공업체 웹사이트, 릴레이 서비스 대시보드, 프라이빗 모델 플랫폼, 로컬 게이트웨이 관리 페이지는 **AQBot에서 열기** 링크를 제공할 수 있습니다. 사용자가 클릭하면 브라우저가 AQBot 데스크톱 앱을 열고, AQBot은 **설정 → 제공업체**로 이동해 확인 대화상자를 표시합니다. 가져오기는 사용자가 확인한 뒤에만 실행됩니다.
+
+### 사용자 흐름
+
+1. 제공업체 링크 가져오기를 지원하는 AQBot 버전을 설치하고 엽니다.
+2. 브라우저에서 제공업체가 제공한 **AQBot에서 열기** 링크를 클릭합니다.
+3. AQBot 확인 대화상자에서 제공업체 이름, Base URL, 제공업체 유형, API 키 접두사를 확인합니다.
+4. AQBot은 같은 **Base URL + 유형**의 기존 제공업체를 재사용합니다. 없으면 새 제공업체를 만들고, API 키가 아직 없을 때만 추가합니다.
+
+AQBot은 API 키를 자동으로 검증하거나 모델 목록을 자동으로 가져오지 않습니다. 가져온 뒤 **모델 가져오기**를 클릭하거나 모델 ID를 수동으로 추가하세요.
+
+### 링크 형식
+
+```text
+aqbot://providers?name=<name>&baseurl=<base-url>&apikey=<api-key>&type=<provider-type>
+```
+
+예:
+
+```text
+aqbot://providers?name=OpenAI&baseurl=https%3A%2F%2Fapi.openai.com&apikey=sk-xxx&type=openai
+```
+
+### 매개변수
+
+| 매개변수 | 필수 | 설명 |
+|----------|------|------|
+| `name` | 예 | AQBot에 표시할 이름. 예: `OpenAI`, `My Relay` |
+| `baseurl` | 예 | URL 인코딩된 Base URL. `http` / `https`만 허용되며 query와 hash는 거부됩니다. |
+| `apikey` | 예 | AQBot에 저장할 API 키. 확인 대화상자에는 접두사만 표시됩니다. |
+| `type` | 예 | 제공업체 유형. 허용 값: `openai`, `openai_responses`, `anthropic`, `gemini`, `custom`. |
+
+`baseurl`은 AQBot의 기존 강제 접미사도 사용할 수 있습니다(예: `https://example.com!`). 링크로 가져올 때는 `api_path`가 설정되지 않으며, 선택한 제공업체 유형의 기본 경로가 계속 사용됩니다.
+
+### 웹사이트 설정
+
+모든 동적 값은 `encodeURIComponent` 또는 `URLSearchParams`로 인코딩하세요:
+
+```html
+<a id="open-aqbot" href="#">AQBot에서 열기</a>
+
+<script>
+  const provider = {
+    name: 'My Relay',
+    baseurl: 'https://api.example.com',
+    apikey: 'sk-user-key',
+    type: 'openai',
+  };
+
+  const params = new URLSearchParams({
+    name: provider.name,
+    baseurl: provider.baseurl,
+    apikey: provider.apikey,
+    type: provider.type,
+  });
+
+  document.getElementById('open-aqbot').href = `aqbot://providers?${params.toString()}`;
+</script>
+```
+
+서비스에서 API 키를 온라인으로 생성할 수 있다면, 사용자가 로그인하고 명시적으로 키를 선택하거나 생성한 뒤에만 링크를 만드는 것이 좋습니다.
+
+::: warning 보안
+URL에 포함된 API 키는 브라우저 기록, 로그, 확장 프로그램, 분석 스크립트에 남을 수 있습니다. 실제 키를 공개 페이지, 정적 HTML, 서드파티 리디렉션 링크에 넣지 마세요. 사용자 전용 계정 페이지에서 확인 후 생성하는 방식을 권장합니다.
+:::
+
+::: tip 테스트
+`aqbot://`는 설치된 데스크톱 앱이 시스템에 등록하는 사용자 지정 프로토콜입니다. 웹사이트나 Vite 개발 서버만 실행해서는 등록되지 않습니다. 클릭해도 AQBot이 열리지 않으면 최신 AQBot 데스크톱 앱을 먼저 설치하거나 다시 빌드하세요.
+:::
+
+---
+
 ## 멀티 키 로테이션
 
 AQBot은 부하 분산과 속도 제한 회피를 위해 제공업체별로 여러 API 키를 지원합니다.

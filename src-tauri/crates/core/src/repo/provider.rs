@@ -1,6 +1,7 @@
 use sea_orm::sea_query::Expr;
 use sea_orm::*;
 
+use crate::crypto::{decrypt_key, encrypt_key};
 use crate::entity::{models, provider_keys, providers};
 use crate::error::{AQBotError, Result};
 use crate::types::*;
@@ -184,6 +185,147 @@ pub async fn update_provider(
     am.update(db).await?;
 
     get_provider(db, id).await
+}
+
+fn parse_deep_link_provider_type(value: &str) -> Result<ProviderType> {
+    match value.trim() {
+        "openai" => Ok(ProviderType::OpenAI),
+        "openai_responses" => Ok(ProviderType::OpenAIResponses),
+        "anthropic" => Ok(ProviderType::Anthropic),
+        "gemini" => Ok(ProviderType::Gemini),
+        "custom" => Ok(ProviderType::Custom),
+        other => Err(AQBotError::Validation(format!(
+            "Unsupported provider type: {other}"
+        ))),
+    }
+}
+
+fn normalize_deep_link_baseurl(value: &str) -> Result<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(AQBotError::Validation("Base URL is required".into()));
+    }
+
+    let forced = trimmed.ends_with('!');
+    let without_force = if forced {
+        trimmed.trim_end_matches('!').trim_end_matches('/')
+    } else {
+        trimmed.trim_end_matches('/')
+    };
+
+    let parsed = reqwest::Url::parse(without_force)
+        .map_err(|_| AQBotError::Validation("Base URL must be a valid URL".into()))?;
+    match parsed.scheme() {
+        "http" | "https" => {}
+        _ => {
+            return Err(AQBotError::Validation(
+                "Base URL must use http or https".into(),
+            ));
+        }
+    }
+    if parsed.host_str().is_none() {
+        return Err(AQBotError::Validation("Base URL host is required".into()));
+    }
+    if parsed.query().is_some() || parsed.fragment().is_some() {
+        return Err(AQBotError::Validation(
+            "Base URL must not contain query or fragment".into(),
+        ));
+    }
+
+    if forced {
+        Ok(format!("{without_force}!"))
+    } else {
+        Ok(without_force.to_string())
+    }
+}
+
+fn find_matching_provider(
+    providers: &[ProviderConfig],
+    baseurl: &str,
+    provider_type: &ProviderType,
+) -> Option<ProviderConfig> {
+    providers
+        .iter()
+        .find(|provider| {
+            provider.provider_type == *provider_type
+                && normalize_deep_link_baseurl(&provider.api_host).ok().as_deref() == Some(baseurl)
+        })
+        .cloned()
+}
+
+fn key_prefix(raw_key: &str) -> String {
+    if raw_key.len() >= 8 {
+        format!("{}...", &raw_key[..8])
+    } else {
+        raw_key.to_string()
+    }
+}
+
+pub async fn import_provider_from_deep_link(
+    db: &DatabaseConnection,
+    master_key: &[u8; 32],
+    input: DeepLinkProviderImportInput,
+) -> Result<DeepLinkProviderImportResult> {
+    let name = input.name.trim();
+    if name.is_empty() {
+        return Err(AQBotError::Validation("Provider name is required".into()));
+    }
+
+    let raw_key = input.apikey.trim();
+    if raw_key.is_empty() {
+        return Err(AQBotError::Validation("API key is required".into()));
+    }
+
+    let provider_type = parse_deep_link_provider_type(&input.provider_type)?;
+    let baseurl = normalize_deep_link_baseurl(&input.baseurl)?;
+    let providers = list_providers(db).await?;
+    let (provider, created_provider) =
+        if let Some(provider) = find_matching_provider(&providers, &baseurl, &provider_type) {
+            (provider, false)
+        } else {
+            (
+                create_provider(
+                    db,
+                    CreateProviderInput {
+                        name: name.to_string(),
+                        provider_type,
+                        api_host: baseurl,
+                        api_path: None,
+                        enabled: true,
+                        builtin_id: None,
+                    },
+                )
+                .await?,
+                true,
+            )
+        };
+
+    let key_exists = provider.keys.iter().any(|key| {
+        decrypt_key(&key.key_encrypted, master_key)
+            .map(|decrypted| decrypted == raw_key)
+            .unwrap_or(false)
+    });
+
+    if key_exists {
+        return Ok(DeepLinkProviderImportResult {
+            provider_id: provider.id,
+            provider_name: provider.name,
+            created_provider,
+            added_key: false,
+            reused_key: true,
+        });
+    }
+
+    let encrypted = encrypt_key(raw_key, master_key)?;
+    add_provider_key(db, &provider.id, &encrypted, &key_prefix(raw_key)).await?;
+
+    Ok(DeepLinkProviderImportResult {
+        provider_id: provider.id,
+        provider_name: provider.name,
+        created_provider,
+        added_key: true,
+        reused_key: false,
+    })
 }
 
 pub async fn delete_provider(db: &DatabaseConnection, id: &str) -> Result<()> {
@@ -650,6 +792,7 @@ pub async fn resolve_provider_id(db: &DatabaseConnection, id: &str) -> Result<St
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::crypto::decrypt_key;
     use crate::db::create_test_pool;
 
     #[tokio::test]
@@ -690,5 +833,157 @@ mod tests {
         let fetched = get_provider_key(db, &key.id).await.unwrap();
         assert_eq!(fetched.key_encrypted, "enc_new_key");
         assert_eq!(fetched.key_prefix, "sk-new");
+    }
+
+    #[tokio::test]
+    async fn provider_deep_link_import_creates_provider_and_key() {
+        let h = create_test_pool().await.unwrap();
+        let db = &h.conn;
+        let master_key = [7u8; 32];
+
+        let result = import_provider_from_deep_link(
+            db,
+            &master_key,
+            DeepLinkProviderImportInput {
+                name: "Example AI".into(),
+                baseurl: "https://api.example.com/".into(),
+                apikey: "sk-example".into(),
+                provider_type: "openai".into(),
+            },
+        )
+        .await
+        .unwrap();
+
+        assert!(result.created_provider);
+        assert!(result.added_key);
+        assert!(!result.reused_key);
+
+        let provider = get_provider(db, &result.provider_id).await.unwrap();
+        assert_eq!(provider.name, "Example AI");
+        assert_eq!(provider.provider_type, ProviderType::OpenAI);
+        assert_eq!(provider.api_host, "https://api.example.com");
+        assert_eq!(provider.api_path, None);
+        assert!(provider.enabled);
+        assert_eq!(provider.keys.len(), 1);
+        assert_eq!(
+            decrypt_key(&provider.keys[0].key_encrypted, &master_key).unwrap(),
+            "sk-example"
+        );
+    }
+
+    #[tokio::test]
+    async fn provider_deep_link_import_reuses_existing_provider_and_key() {
+        let h = create_test_pool().await.unwrap();
+        let db = &h.conn;
+        let master_key = [8u8; 32];
+
+        let first = import_provider_from_deep_link(
+            db,
+            &master_key,
+            DeepLinkProviderImportInput {
+                name: "First Name".into(),
+                baseurl: "https://api.example.com!".into(),
+                apikey: "sk-existing".into(),
+                provider_type: "custom".into(),
+            },
+        )
+        .await
+        .unwrap();
+
+        let second = import_provider_from_deep_link(
+            db,
+            &master_key,
+            DeepLinkProviderImportInput {
+                name: "Changed Name".into(),
+                baseurl: "https://api.example.com/!".into(),
+                apikey: "sk-existing".into(),
+                provider_type: "custom".into(),
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(second.provider_id, first.provider_id);
+        assert!(!second.created_provider);
+        assert!(!second.added_key);
+        assert!(second.reused_key);
+
+        let provider = get_provider(db, &second.provider_id).await.unwrap();
+        assert_eq!(provider.name, "First Name");
+        assert_eq!(provider.keys.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn provider_deep_link_import_reuses_provider_and_adds_new_key() {
+        let h = create_test_pool().await.unwrap();
+        let db = &h.conn;
+        let master_key = [10u8; 32];
+
+        let first = import_provider_from_deep_link(
+            db,
+            &master_key,
+            DeepLinkProviderImportInput {
+                name: "First Name".into(),
+                baseurl: "https://api.example.com".into(),
+                apikey: "sk-first".into(),
+                provider_type: "openai".into(),
+            },
+        )
+        .await
+        .unwrap();
+
+        let second = import_provider_from_deep_link(
+            db,
+            &master_key,
+            DeepLinkProviderImportInput {
+                name: "Changed Name".into(),
+                baseurl: "https://api.example.com/".into(),
+                apikey: "sk-second".into(),
+                provider_type: "openai".into(),
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(second.provider_id, first.provider_id);
+        assert!(!second.created_provider);
+        assert!(second.added_key);
+        assert!(!second.reused_key);
+
+        let provider = get_provider(db, &second.provider_id).await.unwrap();
+        assert_eq!(provider.name, "First Name");
+        assert_eq!(provider.keys.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn provider_deep_link_import_rejects_invalid_input() {
+        let h = create_test_pool().await.unwrap();
+        let db = &h.conn;
+        let master_key = [9u8; 32];
+
+        let cases = [
+            ("", "https://api.example.com", "sk-example", "openai"),
+            ("Example", "ftp://api.example.com", "sk-example", "openai"),
+            ("Example", "https://api.example.com?x=1", "sk-example", "openai"),
+            ("Example", "https://api.example.com", "", "openai"),
+            ("Example", "https://api.example.com", "sk-example", "unknown"),
+        ];
+
+        for (name, baseurl, apikey, provider_type) in cases {
+            let error = import_provider_from_deep_link(
+                db,
+                &master_key,
+                DeepLinkProviderImportInput {
+                    name: name.into(),
+                    baseurl: baseurl.into(),
+                    apikey: apikey.into(),
+                    provider_type: provider_type.into(),
+                },
+            )
+            .await
+            .expect_err("invalid input should fail");
+
+            assert!(matches!(error, AQBotError::Validation(_)));
+        }
     }
 }

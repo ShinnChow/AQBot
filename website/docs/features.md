@@ -7,6 +7,7 @@ AQBot is a full-featured desktop AI assistant that brings together multi-provide
 Connect to the leading AI providers from a single, unified interface. AQBot handles API differences behind the scenes so you can focus on the conversation.
 
 - **Multi-Provider Support** — Compatible with OpenAI, Anthropic Claude, Google Gemini, and all OpenAI-compatible APIs. Each provider is configured independently with its own API key, Base URL, and model list.
+- **Provider Import Links** — Provider websites can open AQBot through an `aqbot://` link with a secure confirmation flow, then pre-fill name, Base URL, API key, and provider type. See [Configure Providers](./guide/providers#importing-from-a-website-link).
 - **Model Management** — Fetch remote model lists automatically and customize generation parameters such as temperature, max tokens, top-p, and more on a per-conversation basis.
 - **Multi-Key Rotation** — Configure multiple API keys per provider with automatic rotation to distribute rate-limit pressure and maximize uptime.
 - **Streaming Output** — Real-time token-by-token rendering keeps you informed as the model generates. Collapsible thinking blocks let you inspect the model's chain-of-thought without cluttering the conversation.

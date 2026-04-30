@@ -7,6 +7,8 @@ import type {
   ProviderKey,
   Model,
   ModelParamOverrides,
+  DeepLinkProviderImportInput,
+  DeepLinkProviderImportResult,
 } from '@/types';
 
 interface ProviderState {
@@ -15,6 +17,7 @@ interface ProviderState {
   error: string | null;
   fetchProviders: () => Promise<void>;
   createProvider: (input: CreateProviderInput) => Promise<ProviderConfig>;
+  importProviderFromDeepLink: (input: DeepLinkProviderImportInput) => Promise<DeepLinkProviderImportResult>;
   updateProvider: (id: string, input: UpdateProviderInput) => Promise<void>;
   deleteProvider: (id: string) => Promise<void>;
   toggleProvider: (id: string, enabled: boolean) => Promise<void>;
@@ -51,6 +54,17 @@ export const useProviderStore = create<ProviderState>((set) => ({
       const provider = await invoke<ProviderConfig>('create_provider', { input });
       set((s) => ({ providers: [...s.providers, provider], error: null }));
       return provider;
+    } catch (e) {
+      set({ error: String(e) });
+      throw e;
+    }
+  },
+
+  importProviderFromDeepLink: async (input) => {
+    try {
+      const result = await invoke<DeepLinkProviderImportResult>('import_provider_from_deep_link', { input });
+      set({ error: null });
+      return result;
     } catch (e) {
       set({ error: String(e) });
       throw e;

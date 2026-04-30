@@ -21,6 +21,20 @@ pub async fn create_provider(
 }
 
 #[tauri::command]
+pub async fn import_provider_from_deep_link(
+    state: State<'_, AppState>,
+    input: DeepLinkProviderImportInput,
+) -> Result<DeepLinkProviderImportResult, String> {
+    aqbot_core::repo::provider::import_provider_from_deep_link(
+        &state.sea_db,
+        &state.master_key,
+        input,
+    )
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn update_provider(
     state: State<'_, AppState>,
     id: String,

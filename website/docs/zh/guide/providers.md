@@ -61,6 +61,78 @@ API 的基础地址。各服务商的官方地址：
 
 API 请求的路径部分，默认为 `/v1/chat/completions`。一般情况下无需修改，除非服务商使用了非标准路径。
 
+## 从网页链接导入服务商
+
+服务商官网、中转服务后台、私有模型平台或本地网关页面，可以提供一个 **在 AQBot 中打开** 的链接。用户点击后，浏览器会拉起 AQBot 桌面端，AQBot 会进入 **设置 → 服务商**，弹出确认框，并在用户确认后导入服务商配置。
+
+### 用户使用流程
+
+1. 安装并打开支持服务商链接导入的 AQBot 版本。
+2. 在浏览器中点击服务商页面提供的 **在 AQBot 中打开** 链接。
+3. 在 AQBot 确认框中检查服务商名称、Base URL、服务商类型和 API Key 前缀。
+4. 点击确认后，AQBot 会按 **Base URL + 类型** 复用已有服务商；如果不存在则新建服务商，并在密钥不存在时追加 API Key。
+
+AQBot 不会自动验证 API Key，也不会自动同步模型列表。导入后你可以点击 **获取模型**，或手动添加模型 ID。
+
+### 链接格式
+
+```text
+aqbot://providers?name=<name>&baseurl=<base-url>&apikey=<api-key>&type=<provider-type>
+```
+
+示例：
+
+```text
+aqbot://providers?name=OpenAI&baseurl=https%3A%2F%2Fapi.openai.com&apikey=sk-xxx&type=openai
+```
+
+### 参数说明
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `name` | 是 | 服务商显示名称，例如 `OpenAI`、`我的中转服务` |
+| `baseurl` | 是 | 服务商 Base URL，需要 URL 编码；仅允许 `http` / `https`，不允许 query 或 hash |
+| `apikey` | 是 | 要保存到 AQBot 的 API Key；确认框只展示前缀，不展示完整密钥 |
+| `type` | 是 | 服务商类型；可选值：`openai`、`openai_responses`、`anthropic`、`gemini`、`custom` |
+
+`baseurl` 支持 AQBot 既有的强制后缀语义，例如 `https://example.com!`。通过链接导入时不会设置 `api_path`，AQBot 会继续按所选服务商类型使用默认路径逻辑。
+
+### 官网/后台页面如何配置链接
+
+对所有动态值使用 `encodeURIComponent` 或 `URLSearchParams` 进行编码：
+
+```html
+<a id="open-aqbot" href="#">在 AQBot 中打开</a>
+
+<script>
+  const provider = {
+    name: '我的中转服务',
+    baseurl: 'https://api.example.com',
+    apikey: 'sk-user-key',
+    type: 'openai',
+  };
+
+  const params = new URLSearchParams({
+    name: provider.name,
+    baseurl: provider.baseurl,
+    apikey: provider.apikey,
+    type: provider.type,
+  });
+
+  document.getElementById('open-aqbot').href = `aqbot://providers?${params.toString()}`;
+</script>
+```
+
+如果你的服务支持在线生成 API Key，建议只在用户登录后、并且明确选择或创建密钥后再生成这个链接。
+
+::: warning 安全提醒
+URL 中携带 API Key 可能被浏览器历史、日志、浏览器扩展或统计脚本记录。不要把真实密钥写在公开页面、静态 HTML 或第三方跳转链接中；推荐在用户私有后台页面中按需生成，并让用户主动点击。
+:::
+
+::: tip 测试提示
+`aqbot://` 是桌面应用注册到系统的自定义协议。仅运行官网或 Vite 开发服务不会注册协议；如果点击后没有拉起 AQBot，请先安装或重新构建最新 AQBot 桌面端。
+:::
+
 ## 多密钥轮询
 
 AQBot 支持为同一个服务商配置多个 API 密钥，实现自动轮换：

@@ -57,6 +57,21 @@ export interface UpdateProviderInput {
   sort_order?: number;
 }
 
+export interface DeepLinkProviderImportInput {
+  name: string;
+  baseurl: string;
+  apikey: string;
+  type: ProviderType;
+}
+
+export interface DeepLinkProviderImportResult {
+  provider_id: string;
+  provider_name: string;
+  created_provider: boolean;
+  added_key: boolean;
+  reused_key: boolean;
+}
+
 // === Model System ===
 export type ModelCapability = 'TextChat' | 'Vision' | 'FunctionCalling' | 'Reasoning' | 'RealtimeVoice';
 export type ModelType = 'Chat' | 'Voice' | 'Embedding' | 'Image';

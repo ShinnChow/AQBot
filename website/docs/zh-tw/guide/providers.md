@@ -61,6 +61,78 @@ API 的基礎位址。各服務供應商的官方位址：
 
 API 請求的路徑部分，預設為 `/v1/chat/completions`。一般情況下無需修改，除非服務供應商使用了非標準路徑。
 
+## 從網頁連結匯入服務供應商
+
+服務供應商官網、中繼服務後台、私有模型平台或本機閘道頁面，可以提供一個 **在 AQBot 中開啟** 的連結。使用者點擊後，瀏覽器會喚起 AQBot 桌面端，AQBot 會進入 **設定 → 服務供應商**，顯示確認視窗，並在使用者確認後匯入服務供應商設定。
+
+### 使用流程
+
+1. 安裝並開啟支援服務供應商連結匯入的 AQBot 版本。
+2. 在瀏覽器中點擊服務頁面提供的 **在 AQBot 中開啟** 連結。
+3. 在 AQBot 確認視窗中檢查服務供應商名稱、Base URL、服務供應商類型和 API Key 前綴。
+4. 確認後，AQBot 會按 **Base URL + 類型** 重用既有服務供應商；如果不存在則建立新服務供應商，並在金鑰不存在時追加 API Key。
+
+AQBot 不會自動驗證 API Key，也不會自動同步模型清單。匯入後可點擊 **取得模型**，或手動新增模型 ID。
+
+### 連結格式
+
+```text
+aqbot://providers?name=<name>&baseurl=<base-url>&apikey=<api-key>&type=<provider-type>
+```
+
+範例：
+
+```text
+aqbot://providers?name=OpenAI&baseurl=https%3A%2F%2Fapi.openai.com&apikey=sk-xxx&type=openai
+```
+
+### 參數說明
+
+| 參數 | 必填 | 說明 |
+|------|------|------|
+| `name` | 是 | 服務供應商顯示名稱，例如 `OpenAI`、`我的中繼服務` |
+| `baseurl` | 是 | 服務供應商 Base URL，需 URL 編碼；僅允許 `http` / `https`，不允許 query 或 hash |
+| `apikey` | 是 | 要儲存到 AQBot 的 API Key；確認視窗只顯示前綴，不顯示完整金鑰 |
+| `type` | 是 | 服務供應商類型；可選值：`openai`、`openai_responses`、`anthropic`、`gemini`、`custom` |
+
+`baseurl` 支援 AQBot 既有的強制後綴語義，例如 `https://example.com!`。透過連結匯入時不會設定 `api_path`，AQBot 會繼續按所選服務供應商類型使用預設路徑邏輯。
+
+### 官網/後台頁面如何設定連結
+
+對所有動態值使用 `encodeURIComponent` 或 `URLSearchParams` 進行編碼：
+
+```html
+<a id="open-aqbot" href="#">在 AQBot 中開啟</a>
+
+<script>
+  const provider = {
+    name: '我的中繼服務',
+    baseurl: 'https://api.example.com',
+    apikey: 'sk-user-key',
+    type: 'openai',
+  };
+
+  const params = new URLSearchParams({
+    name: provider.name,
+    baseurl: provider.baseurl,
+    apikey: provider.apikey,
+    type: provider.type,
+  });
+
+  document.getElementById('open-aqbot').href = `aqbot://providers?${params.toString()}`;
+</script>
+```
+
+如果您的服務支援線上產生 API Key，建議只在使用者登入後，且明確選擇或建立金鑰後再產生此連結。
+
+::: warning 安全提醒
+URL 中攜帶 API Key 可能被瀏覽器歷史、日誌、瀏覽器擴充套件或統計腳本記錄。不要把真實金鑰寫在公開頁面、靜態 HTML 或第三方跳轉連結中；建議在使用者私有後台頁面中按需產生，並讓使用者主動點擊。
+:::
+
+::: tip 測試提示
+`aqbot://` 是桌面應用註冊到系統的自訂協定。僅執行官網或 Vite 開發服務不會註冊協定；如果點擊後沒有喚起 AQBot，請先安裝或重新建置最新 AQBot 桌面端。
+:::
+
 ## 多金鑰輪詢
 
 AQBot 支援為同一個服務供應商設定多個 API 金鑰，實現自動輪換：

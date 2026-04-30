@@ -116,6 +116,24 @@ pub struct UpdateProviderInput {
     pub sort_order: Option<i32>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeepLinkProviderImportInput {
+    pub name: String,
+    pub baseurl: String,
+    pub apikey: String,
+    #[serde(rename = "type")]
+    pub provider_type: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeepLinkProviderImportResult {
+    pub provider_id: String,
+    pub provider_name: String,
+    pub created_provider: bool,
+    pub added_key: bool,
+    pub reused_key: bool,
+}
+
 // === Model System ===
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

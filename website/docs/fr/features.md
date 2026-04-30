@@ -7,6 +7,7 @@ AQBot est un assistant IA de bureau complet qui combine le chat multi-fournisseu
 Connectez-vous aux principaux fournisseurs d'IA depuis une interface unique et unifiée.
 
 - **Support multi-fournisseurs** — Compatible avec OpenAI, Anthropic Claude, Google Gemini et toutes les API compatibles OpenAI. Chaque fournisseur est configuré indépendamment.
+- **Liens d'import de fournisseurs** — Les sites ou tableaux de bord de fournisseurs peuvent ouvrir AQBot via un lien `aqbot://` et préremplir le nom, l'URL de base, la clé API et le type après confirmation de l'utilisateur. Voir [Configurer les fournisseurs](./guide/providers).
 - **Gestion des modèles** — Récupération automatique des listes de modèles distants et personnalisation des paramètres de génération par conversation.
 - **Rotation de clés multiples** — Configurez plusieurs clés API par fournisseur avec rotation automatique pour distribuer la pression des limites de débit.
 - **Sortie en streaming** — Rendu en temps réel token par token. Blocs de réflexion repliables pour inspecter le raisonnement du modèle.

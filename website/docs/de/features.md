@@ -7,6 +7,7 @@ AQBot ist ein voll ausgestatteter Desktop-KI-Assistent, der Multi-Provider-Chat,
 Verbinden Sie sich über eine einzige, einheitliche Oberfläche mit den führenden KI-Anbietern.
 
 - **Multi-Provider-Unterstützung** — Kompatibel mit OpenAI, Anthropic Claude, Google Gemini und allen OpenAI-kompatiblen APIs.
+- **Anbieter-Importlinks** — Anbieter-Websites oder Dashboards können AQBot über einen `aqbot://`-Link öffnen und nach Benutzerbestätigung Name, Base URL, API-Schlüssel und Anbietertyp vorausfüllen. Siehe [Anbieter konfigurieren](./guide/providers).
 - **Modellverwaltung** — Automatisches Abrufen von Remote-Modelllisten und Anpassen der Generierungsparameter pro Gespräch.
 - **Multi-Key-Rotation** — Konfigurieren Sie mehrere API-Schlüssel pro Anbieter mit automatischer Rotation.
 - **Streaming-Ausgabe** — Echtzeit-Token-für-Token-Rendering. Einklappbare Denkblöcke zur Überprüfung des Modell-Reasonings.

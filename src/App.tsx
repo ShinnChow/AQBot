@@ -14,6 +14,7 @@ import { useGlobalShortcutManager } from '@/hooks/useGlobalShortcutManager';
 import { useResolvedDarkMode } from '@/hooks/useResolvedDarkMode';
 import { useGlobalOverlayScrollbars } from '@/hooks/useGlobalOverlayScrollbars';
 import { useUpdateChecker } from '@/hooks/useUpdateChecker';
+import { useProviderDeepLink } from '@/hooks/useProviderDeepLink';
 import { useShadcnTheme } from '@/theme/shadcnTheme';
 import { isTauri, invoke, listen } from '@/lib/invoke';
 import { preloadChatRenderers } from '@/lib/preloadChatRenderers';
@@ -36,10 +37,11 @@ async function showWindow() {
 function AppInner() {
   const { token } = useToken();
   const { t } = useTranslation();
-  const { modal } = AntdApp.useApp();
+  const { modal, message } = AntdApp.useApp();
   const activePage = useUIStore((s) => s.activePage);
   const { open: cmdOpen, setOpen: setCmdOpen } = useCommandPalette();
   const isInSettings = activePage === 'settings';
+  useProviderDeepLink({ modal, message });
 
   // Handle app close confirmation from backend
   const handleCloseRequested = useCallback(() => {

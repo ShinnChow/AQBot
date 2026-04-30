@@ -34,6 +34,80 @@ AQBot se connecte simultanément à n'importe quel nombre de fournisseurs IA. Ch
 
 ---
 
+## Importer depuis un lien Web
+
+Les sites de fournisseurs, tableaux de bord de services relais, plateformes de modèles privées ou pages de passerelle locale peuvent proposer un lien **Ouvrir dans AQBot**. Lorsqu'un utilisateur clique dessus, le navigateur ouvre l'application de bureau AQBot, AQBot passe à **Paramètres → Fournisseurs**, affiche une boîte de confirmation et importe la configuration uniquement après confirmation.
+
+### Parcours utilisateur
+
+1. Installez et ouvrez une version d'AQBot compatible avec les liens de fournisseur.
+2. Cliquez sur le lien **Ouvrir dans AQBot** fourni par le fournisseur dans le navigateur.
+3. Vérifiez dans AQBot le nom du fournisseur, l'URL de base, le type de fournisseur et le préfixe de la clé API.
+4. AQBot réutilise un fournisseur existant avec le même couple **URL de base + type**. S'il n'existe pas, AQBot en crée un nouveau et ajoute la clé API seulement si elle n'est pas déjà présente.
+
+AQBot ne valide pas automatiquement la clé et ne récupère pas automatiquement les modèles. Après l'import, cliquez sur **Récupérer les modèles** ou ajoutez des modèles manuellement.
+
+### Format du lien
+
+```text
+aqbot://providers?name=<name>&baseurl=<base-url>&apikey=<api-key>&type=<provider-type>
+```
+
+Exemple :
+
+```text
+aqbot://providers?name=OpenAI&baseurl=https%3A%2F%2Fapi.openai.com&apikey=sk-xxx&type=openai
+```
+
+### Paramètres
+
+| Paramètre | Obligatoire | Description |
+|-----------|-------------|-------------|
+| `name` | Oui | Nom affiché dans AQBot, par exemple `OpenAI` ou `My Relay` |
+| `baseurl` | Oui | URL de base encodée. Seuls `http` et `https` sont acceptés ; query et hash sont refusés. |
+| `apikey` | Oui | Clé API à enregistrer dans AQBot. AQBot n'affiche qu'un préfixe dans la boîte de confirmation. |
+| `type` | Oui | Type de fournisseur. Valeurs autorisées : `openai`, `openai_responses`, `anthropic`, `gemini`, `custom`. |
+
+`baseurl` peut utiliser le suffixe forcé existant d'AQBot, par exemple `https://example.com!`. L'import par lien ne définit pas `api_path` ; AQBot continue d'utiliser le chemin par défaut du type de fournisseur choisi.
+
+### Configuration du site Web
+
+Encodez toutes les valeurs dynamiques avec `encodeURIComponent` ou `URLSearchParams` :
+
+```html
+<a id="open-aqbot" href="#">Ouvrir dans AQBot</a>
+
+<script>
+  const provider = {
+    name: 'My Relay',
+    baseurl: 'https://api.example.com',
+    apikey: 'sk-user-key',
+    type: 'openai',
+  };
+
+  const params = new URLSearchParams({
+    name: provider.name,
+    baseurl: provider.baseurl,
+    apikey: provider.apikey,
+    type: provider.type,
+  });
+
+  document.getElementById('open-aqbot').href = `aqbot://providers?${params.toString()}`;
+</script>
+```
+
+Si votre service permet de générer des clés API, créez le lien uniquement lorsque l'utilisateur est connecté et a explicitement choisi ou créé une clé.
+
+::: warning Sécurité
+Une clé API dans une URL peut être visible dans l'historique du navigateur, les journaux, les extensions ou les outils d'analyse. Ne placez pas de vraies clés sur des pages publiques, du HTML statique ou des redirections tierces. Préférez générer le lien sur une page privée du compte après confirmation de l'utilisateur.
+:::
+
+::: tip Test
+`aqbot://` est un protocole personnalisé enregistré par l'application de bureau installée. Exécuter uniquement le site Web ou le serveur de développement Vite n'enregistre pas ce protocole. Si le lien n'ouvre pas AQBot, installez ou reconstruisez d'abord la dernière application de bureau AQBot.
+:::
+
+---
+
 ## Rotation de clés multiples
 
 AQBot supporte plusieurs clés API par fournisseur pour la distribution de charge et l'évitement des limites de débit. Cliquez sur **Ajouter une clé** dans le panneau de détails du fournisseur.

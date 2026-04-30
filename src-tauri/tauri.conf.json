@@ -46,6 +46,11 @@
     }
   },
   "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["aqbot"]
+      }
+    },
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFGOEI0QkFDRTE4RTI4MTEKUldRUktJN2hyRXVMcjNaMTJJa3hxbkpBTGpIUWVMcUdWOXpMMXdnMU5aaTdvM2c2QnNCbHh5SXUK",
       "endpoints": [

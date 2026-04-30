@@ -3,10 +3,12 @@ import { Modal, Input, Slider, Button, Tooltip, Card, theme } from 'antd';
 import { ModelIcon } from '@lobehub/icons';
 import { Info, Undo2, Bot } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useConversationStore, useSettingsStore } from '@/stores';
+import { useConversationStore, useProviderStore, useSettingsStore } from '@/stores';
 import { CONV_ICON_KEY, type ConvIconType, type ConvIcon } from '@/lib/convIcon';
 import { IconEditor } from '@/components/shared/IconEditor';
 import { ModelParamSliders } from '@/components/common/ModelParamSliders';
+import { findModelByIds } from '@/lib/modelCapabilities';
+import { resolveModelParamDefaults } from '@/lib/modelParams';
 import type { MenuProps } from 'antd';
 
 interface ConversationSettingsModalProps {
@@ -24,8 +26,13 @@ export function ConversationSettingsModal({ open, onClose }: ConversationSetting
   const activeConversationId = useConversationStore((s) => s.activeConversationId);
   const updateConversation = useConversationStore((s) => s.updateConversation);
   const settings = useSettingsStore((s) => s.settings);
+  const providers = useProviderStore((s) => s.providers);
 
   const conversation = conversations.find((c) => c.id === activeConversationId);
+  const modelParamDefaults = React.useMemo(() => {
+    const model = findModelByIds(providers, conversation?.provider_id, conversation?.model_id);
+    return resolveModelParamDefaults(model, settings);
+  }, [providers, conversation?.provider_id, conversation?.model_id, settings]);
 
   // Form state
   const [title, setTitle] = useState('');
@@ -240,10 +247,10 @@ export function ConversationSettingsModal({ open, onClose }: ConversationSetting
               if ('frequencyPenalty' in v) setFrequencyPenalty(v.frequencyPenalty!);
             }}
             defaults={{
-              temperature: settings.default_temperature ?? 0.7,
-              topP: settings.default_top_p ?? 1.0,
-              maxTokens: settings.default_max_tokens ?? 4096,
-              frequencyPenalty: settings.default_frequency_penalty ?? 0,
+              temperature: modelParamDefaults.temperature,
+              topP: modelParamDefaults.topP,
+              maxTokens: modelParamDefaults.maxTokens,
+              frequencyPenalty: modelParamDefaults.frequencyPenalty,
             }}
           />
         </Card>

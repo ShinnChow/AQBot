@@ -51,6 +51,42 @@ async fn resolve_system_prompt(
     settings.default_system_prompt.filter(|s| !s.is_empty())
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct EffectiveChatModelParams {
+    temperature: Option<f64>,
+    top_p: Option<f64>,
+    max_tokens: Option<u32>,
+}
+
+fn resolve_chat_model_params(
+    conversation: &Conversation,
+    model_param_overrides: Option<&ModelParamOverrides>,
+    settings: &AppSettings,
+    force_max_tokens: Option<bool>,
+) -> EffectiveChatModelParams {
+    let temperature = conversation
+        .temperature
+        .or_else(|| model_param_overrides.and_then(|p| p.temperature))
+        .or(settings.default_temperature)
+        .map(|v| v as f64);
+    let top_p = conversation
+        .top_p
+        .or_else(|| model_param_overrides.and_then(|p| p.top_p))
+        .or(settings.default_top_p)
+        .map(|v| v as f64);
+    let max_tokens = conversation
+        .max_tokens
+        .or_else(|| model_param_overrides.and_then(|p| p.max_tokens))
+        .or(settings.default_max_tokens)
+        .or_else(|| (force_max_tokens == Some(true)).then_some(4096));
+
+    EffectiveChatModelParams {
+        temperature,
+        top_p,
+        max_tokens,
+    }
+}
+
 async fn persist_attachments(
     state: &AppState,
     conversation_id: &str,
@@ -1310,6 +1346,7 @@ fn spawn_stream_task(
     use_max_completion_tokens: Option<bool>,
     force_max_tokens: Option<bool>,
     thinking_param_style: Option<String>,
+    model_param_overrides: Option<ModelParamOverrides>,
     settings: AppSettings,
     master_key: [u8; 32],
     cancel_flag: Arc<AtomicBool>,
@@ -1321,6 +1358,12 @@ fn spawn_stream_task(
     let model_id = conversation.model_id.clone();
 
     tokio::spawn(async move {
+        let effective_chat_params = resolve_chat_model_params(
+            &conversation,
+            model_param_overrides.as_ref(),
+            &settings,
+            force_max_tokens,
+        );
         let registry = ProviderRegistry::create_default();
         let registry_key = provider_type_to_registry_key(&provider.provider_type);
         let adapter: &dyn aqbot_providers::ProviderAdapter = match registry.get(registry_key) {
@@ -1407,13 +1450,9 @@ fn spawn_stream_task(
                 model: model_id.clone(),
                 messages: chat_messages.clone(),
                 stream: true,
-                temperature: conversation.temperature.map(|v| v as f64),
-                top_p: conversation.top_p.map(|v| v as f64),
-                max_tokens: if force_max_tokens == Some(true) {
-                    conversation.max_tokens.or(Some(4096))
-                } else {
-                    conversation.max_tokens
-                },
+                temperature: effective_chat_params.temperature,
+                top_p: effective_chat_params.top_p,
+                max_tokens: effective_chat_params.max_tokens,
                 tools: tools.clone(),
                 thinking_budget,
                 use_max_completion_tokens,
@@ -2146,6 +2185,7 @@ pub async fn send_message(
         use_max_completion_tokens,
         force_max_tokens,
         thinking_param_style,
+        model_param_overrides,
         global_settings,
         state.master_key,
         cancel_flag,
@@ -2455,6 +2495,7 @@ pub async fn regenerate_message(
         use_max_completion_tokens,
         force_max_tokens,
         thinking_param_style,
+        regen_model_overrides,
         global_settings,
         state.master_key,
         cancel_flag,
@@ -2786,6 +2827,7 @@ pub async fn regenerate_with_model(
         use_max_completion_tokens,
         force_max_tokens,
         thinking_param_style,
+        rwm_overrides,
         global_settings,
         state.master_key,
         cancel_flag,
@@ -3200,6 +3242,117 @@ mod tests {
     use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
     use tokio::sync::Mutex;
+
+    fn test_conversation(
+        temperature: Option<f32>,
+        max_tokens: Option<u32>,
+        top_p: Option<f32>,
+    ) -> Conversation {
+        Conversation {
+            id: "conv-1".to_string(),
+            title: "Conversation".to_string(),
+            model_id: "model-1".to_string(),
+            provider_id: "provider-1".to_string(),
+            system_prompt: None,
+            temperature,
+            max_tokens,
+            top_p,
+            frequency_penalty: None,
+            search_enabled: false,
+            search_provider_id: None,
+            thinking_budget: None,
+            enabled_mcp_server_ids: Vec::new(),
+            enabled_knowledge_base_ids: Vec::new(),
+            enabled_memory_namespace_ids: Vec::new(),
+            message_count: 0,
+            is_pinned: false,
+            is_archived: false,
+            context_compression: false,
+            category_id: None,
+            parent_conversation_id: None,
+            mode: "chat".to_string(),
+            created_at: 0,
+            updated_at: 0,
+        }
+    }
+
+    fn test_param_overrides(
+        temperature: Option<f32>,
+        max_tokens: Option<u32>,
+        top_p: Option<f32>,
+    ) -> ModelParamOverrides {
+        ModelParamOverrides {
+            temperature,
+            max_tokens,
+            top_p,
+            frequency_penalty: None,
+            use_max_completion_tokens: None,
+            no_system_role: None,
+            force_max_tokens: None,
+            thinking_param_style: None,
+        }
+    }
+
+    #[test]
+    fn model_params_override_global_defaults_when_conversation_params_are_unset() {
+        let mut settings = AppSettings::default();
+        settings.default_temperature = Some(0.875);
+        settings.default_top_p = Some(0.9375);
+        settings.default_max_tokens = Some(32768);
+
+        let params = resolve_chat_model_params(
+            &test_conversation(None, None, None),
+            Some(&test_param_overrides(Some(0.25), Some(4096), Some(0.75))),
+            &settings,
+            None,
+        );
+
+        assert_eq!(params.temperature, Some(0.25));
+        assert_eq!(params.top_p, Some(0.75));
+        assert_eq!(params.max_tokens, Some(4096));
+    }
+
+    #[test]
+    fn conversation_params_override_model_and_global_defaults() {
+        let mut settings = AppSettings::default();
+        settings.default_temperature = Some(0.875);
+        settings.default_top_p = Some(0.9375);
+        settings.default_max_tokens = Some(32768);
+
+        let params = resolve_chat_model_params(
+            &test_conversation(Some(0.5), Some(8192), Some(0.625)),
+            Some(&test_param_overrides(Some(0.25), Some(4096), Some(0.75))),
+            &settings,
+            None,
+        );
+
+        assert_eq!(params.temperature, Some(0.5));
+        assert_eq!(params.top_p, Some(0.625));
+        assert_eq!(params.max_tokens, Some(8192));
+    }
+
+    #[test]
+    fn force_max_tokens_uses_specific_defaults_before_falling_back_to_4096() {
+        let mut settings = AppSettings::default();
+        settings.default_max_tokens = Some(32768);
+
+        let model_params = resolve_chat_model_params(
+            &test_conversation(None, None, None),
+            Some(&test_param_overrides(None, Some(4096), None)),
+            &settings,
+            Some(true),
+        );
+        assert_eq!(model_params.max_tokens, Some(4096));
+
+        settings.default_max_tokens = None;
+        let fallback_params = resolve_chat_model_params(
+            &test_conversation(None, None, None),
+            None,
+            &settings,
+            Some(true),
+        );
+        assert_eq!(fallback_params.max_tokens, Some(4096));
+    }
 
     #[test]
     fn build_message_content_turns_images_into_multipart_data_urls() {

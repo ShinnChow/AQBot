@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Modal, Input, Avatar, theme, Divider, Typography } from 'antd';
 import { FolderOpen } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { IconEditor } from '@/components/shared/IconEditor';
 import { ModelSelect, parseModelValue } from '@/components/shared/ModelSelect';
 import { ModelParamSliders } from '@/components/common/ModelParamSliders';
-import { useSettingsStore } from '@/stores';
+import { useProviderStore, useSettingsStore } from '@/stores';
+import { findModelByIds } from '@/lib/modelCapabilities';
+import { resolveModelParamDefaults } from '@/lib/modelParams';
 
 const { TextArea } = Input;
 
@@ -58,6 +60,7 @@ export function CategoryEditModal({
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const settings = useSettingsStore((s) => s.settings);
+  const providers = useProviderStore((s) => s.providers);
   const [name, setName] = useState(initialName);
   const [iconType, setIconType] = useState<string | null>(initialIconType);
   const [iconValue, setIconValue] = useState<string | null>(initialIconValue);
@@ -99,6 +102,10 @@ export function CategoryEditModal({
   const selectedModelValue = defaultProviderId && defaultModelId
     ? `${defaultProviderId}::${defaultModelId}`
     : undefined;
+  const modelParamDefaults = useMemo(() => {
+    const model = findModelByIds(providers, defaultProviderId, defaultModelId);
+    return resolveModelParamDefaults(model, settings);
+  }, [providers, defaultProviderId, defaultModelId, settings]);
 
   const handleDefaultModelChange = (value: string | undefined) => {
     const parsed = parseModelValue(value);
@@ -198,10 +205,10 @@ export function CategoryEditModal({
               if ('frequencyPenalty' in values) setDefaultFrequencyPenalty(values.frequencyPenalty ?? null);
             }}
             defaults={{
-              temperature: settings.default_temperature ?? 0.7,
-              topP: settings.default_top_p ?? 1,
-              maxTokens: settings.default_max_tokens ?? 4096,
-              frequencyPenalty: settings.default_frequency_penalty ?? 0,
+              temperature: modelParamDefaults.temperature,
+              topP: modelParamDefaults.topP,
+              maxTokens: modelParamDefaults.maxTokens,
+              frequencyPenalty: modelParamDefaults.frequencyPenalty,
             }}
           />
         </div>
